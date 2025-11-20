@@ -4,7 +4,7 @@ import {
     Student, Group, SubscriptionPlan, Attendance, FinancialTransaction, StudentSubscription, ScheduleEvent, ScheduleEventException,
     Expense,
     StudentForCreation, GroupForCreation, SubscriptionPlanForCreation, StudentSubscriptionForCreation, 
-    FinancialTransactionForCreation, AttendanceForCreation, ScheduleEventForCreation, ScheduleEventExceptionForCreation,
+    FinancialTransactionForCreation, AttendanceForCreation, ScheduleEventForCreation,
     ExpenseForCreation,
     IAppContext,
     DisplayEvent
