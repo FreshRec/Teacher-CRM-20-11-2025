@@ -1,34 +1,32 @@
 # 1. Этап сборки (Build)
-# Используем легкий образ Node.js версии 20
 FROM node:20-alpine as build
 
-# Создаем рабочую папку внутри контейнера
+# Рабочая папка
 WORKDIR /app
 
-# Сначала копируем файлы с зависимостями
+# Копируем файлы зависимостей
 COPY package*.json ./
 
 # Устанавливаем зависимости
 RUN npm install
 
-# Копируем весь остальной код проекта
+# Копируем исходный код
 COPY . .
 
-# Собираем проект (результат появится в папке dist)
+# Собираем приложение (Vite создаст папку dist)
 RUN npm run build
 
 # 2. Этап запуска (Production)
-# Используем Nginx для раздачи статики
 FROM nginx:alpine
 
-# Копируем собранные файлы из первого этапа в папку Nginx
+# Копируем собранные файлы из этапа build в папку Nginx
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Копируем наш файл настроек Nginx (см. ниже)
+# Копируем наш конфиг Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Говорим, что контейнер будет слушать 80 порт
-EXPOSE 80
+# Открываем порт 8080 (Важно для Yandex Cloud!)
+EXPOSE 8080
 
 # Запускаем Nginx
 CMD ["nginx", "-g", "daemon off;"]
