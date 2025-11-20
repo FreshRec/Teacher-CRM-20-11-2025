@@ -1,19 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { ScheduleEvent, Group, ScheduleEventForCreation, ScheduleEventException, DisplayEvent } from '../types';
+import { ScheduleEvent, Group, ScheduleEventForCreation, DisplayEvent } from '../types';
 import Modal, { ConfirmationModal } from './Modal';
 import { useAppContext } from '../AppContext';
-
-// Generates a stable, timezone-agnostic key for an event occurrence.
-// e.g., '2024-08-15T09:00'
-const getOccurrenceKey = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
-
 
 const formatDateForLocalInput = (isoString: string): string => {
     if (!isoString) return '';
@@ -249,7 +237,6 @@ const Schedule: React.FC<ScheduleProps> = ({
     
     const monthGrid = useMemo(() => {
         const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
         const startDate = new Date(startOfMonth);
         const startDayOfWeek = startDate.getDay();
@@ -413,7 +400,7 @@ const Schedule: React.FC<ScheduleProps> = ({
             setSelectionArea(prev => prev ? { ...prev, currentY } : null);
         };
 
-        const handleMouseUp = (upEvent: MouseEvent) => {
+        const handleMouseUp = () => {
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
 
@@ -814,14 +801,14 @@ const Schedule: React.FC<ScheduleProps> = ({
                             }}
                         />
                     )}
-                    {selectionArea && (
+                    {selectionArea && scrollContainerRef.current && (
                         <div
                             className="absolute bg-indigo-100 border border-indigo-300 opacity-70 z-10 pointer-events-none"
                             style={{
                                 top: `${Math.min(selectionArea.startY, selectionArea.currentY)}px`,
                                 height: `${Math.abs(selectionArea.currentY - selectionArea.startY)}px`,
-                                left: `${(scrollContainerRef.current!.querySelector('.day-column') as HTMLElement).offsetLeft + selectionArea.dayIndex * (scrollContainerRef.current!.querySelector('.day-column') as HTMLElement).offsetWidth}px`,
-                                width: `${(scrollContainerRef.current!.querySelector('.day-column') as HTMLElement).offsetWidth}px`
+                                left: `${(scrollContainerRef.current.querySelector('.day-column') as HTMLElement).offsetLeft + selectionArea.dayIndex * (scrollContainerRef.current.querySelector('.day-column') as HTMLElement).offsetWidth}px`,
+                                width: `${(scrollContainerRef.current.querySelector('.day-column') as HTMLElement).offsetWidth}px`
                             }}
                         />
                     )}
