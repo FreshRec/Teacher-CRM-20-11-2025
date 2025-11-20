@@ -807,8 +807,8 @@ const Schedule: React.FC<ScheduleProps> = ({
                             style={{
                                 top: `${Math.min(selectionArea.startY, selectionArea.currentY)}px`,
                                 height: `${Math.abs(selectionArea.currentY - selectionArea.startY)}px`,
-                                left: `${(scrollContainerRef.current.querySelector('.day-column') as HTMLElement).offsetLeft + selectionArea.dayIndex * (scrollContainerRef.current.querySelector('.day-column') as HTMLElement).offsetWidth}px`,
-                                width: `${(scrollContainerRef.current.querySelector('.day-column') as HTMLElement).offsetWidth}px`
+                                left: `${(scrollContainerRef.current!.querySelector('.day-column') as HTMLElement).offsetLeft + selectionArea.dayIndex * (scrollContainerRef.current!.querySelector('.day-column') as HTMLElement).offsetWidth}px`,
+                                width: `${(scrollContainerRef.current!.querySelector('.day-column') as HTMLElement).offsetWidth}px`
                             }}
                         />
                     )}
