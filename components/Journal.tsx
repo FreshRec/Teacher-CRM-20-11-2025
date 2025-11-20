@@ -1,9 +1,8 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useAppContext, DEFAULT_LESSON_PRICE } from '../AppContext';
+import React, { useState, useMemo, useRef } from 'react';
+import { useAppContext } from '../AppContext';
 import { Student, Attendance, StudentForCreation } from '../types';
 import { StudentEditModal } from './StudentEditModal';
 import Modal, { ConfirmationModal } from './Modal';
-import { SettingsIcon } from './icons';
 
 const JournalCell: React.FC<{
     student: Student;
