@@ -374,7 +374,7 @@ const Schedule: React.FC<ScheduleProps> = ({
         
         const gridRect = scrollContainerRef.current.getBoundingClientRect();
         const headerHeight = headerRef.current.offsetHeight;
-        const tapY = clientY - gridRect.top - headerHeight + scrollContainerRef.current.scrollTop;
+        const tapY = clientY - gridRect.top - headerHeight + scrollContainerRef.current!.scrollTop;
         
         const tappedDate = yToTime(tapY, weekDays[dayIndex]);
         const startDate = new Date(tappedDate);
@@ -552,8 +552,8 @@ const Schedule: React.FC<ScheduleProps> = ({
             }
              // Auto-scroll
             const scrollThreshold = 50;
-            if (clientY < gridRect.top + scrollThreshold) scrollContainerRef.current.scrollTop -= 20;
-            if (clientY > gridRect.bottom - scrollThreshold) scrollContainerRef.current.scrollTop += 20;
+            if (clientY < gridRect.top + scrollThreshold) scrollContainerRef.current!.scrollTop -= 20;
+            if (clientY > gridRect.bottom - scrollThreshold) scrollContainerRef.current!.scrollTop += 20;
         };
 
         const handleDragEnd = () => {
