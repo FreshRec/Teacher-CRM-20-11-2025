@@ -396,6 +396,7 @@ const Schedule: React.FC<ScheduleProps> = ({
         setSelectionArea({ dayIndex, startY, currentY: startY });
         
         const handleMouseMove = (moveEvent: MouseEvent) => {
+            if (!scrollContainerRef.current) return;
             const currentY = moveEvent.clientY - gridRect.top - headerHeight + scrollContainerRef.current.scrollTop;
             setSelectionArea(prev => prev ? { ...prev, currentY } : null);
         };
