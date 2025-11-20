@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Student, FinancialTransaction, View, StudentSubscription, Attendance } from '../types';
+import { FinancialTransaction, View, Attendance } from '../types';
 import { useAppContext } from '../AppContext';
 import { StudentEditModal } from './StudentEditModal';
 import { SettingsIcon } from './icons';
