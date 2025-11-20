@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Student, Group, SubscriptionPlan, StudentSubscription, FinancialTransaction, Attendance } from '../types';
+import { Student, Group, SubscriptionPlan, StudentSubscription, FinancialTransaction } from '../types';
 import Modal from './Modal';
 import { useAppContext } from '../AppContext';
 
