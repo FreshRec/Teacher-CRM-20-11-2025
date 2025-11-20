@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Student } from '../types';
 import { useAppContext } from '../AppContext';
 import { ConfirmationModal } from './Modal';
 
