@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Student, Group, StudentForCreation } from '../types';
+import { Student, StudentForCreation } from '../types';
 import { ConfirmationModal } from './Modal';
 import { StudentEditModal } from './StudentEditModal';
 import { useAppContext } from '../AppContext';
@@ -39,7 +39,6 @@ const Students: React.FC<StudentsProps> = ({ triggerAddStudent }) => {
         showNotification, 
         addStudent, 
         updateStudent,
-        addTransaction,
         addStudentSubscription,
         updateStudentSubscription,
         refundToBalanceAndCancelSubscription,
