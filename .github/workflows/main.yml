@@ -1,0 +1,12 @@
+# This workflow is disabled in favor of deploy.yml
+# name: CI/CD
+# on:
+#   push:
+#     branches: [ "main" ]
+#   pull_request:
+#     branches: [ "main" ]
+# jobs:
+#   dummy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - run: echo "This workflow is disabled."
