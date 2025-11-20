@@ -107,7 +107,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ]);
     
             const errors = results.map((res) => res.error).filter(Boolean);
-            if (errors.length > 0) throw new Error(errors.map(e => e.message).join('\n'));
+            if (errors.length > 0) throw new Error(errors.map(e => e!.message).join('\n'));
     
             const [
                 { data: studentsRaw }, { data: groupsRaw }, { data: plansRaw },
@@ -376,7 +376,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             // 2. Create and execute update promises for each affected student.
             const studentUpdatePromises = (studentsToUpdate || []).map(student => {
-                const newGroupIds = student.group_ids.filter(groupId => groupId !== id);
+                const newGroupIds = (student.group_ids as string[]).filter((groupId: string) => groupId !== id);
                 return supabase.from('students').update({ group_ids: newGroupIds }).eq('id', student.id);
             });
     
