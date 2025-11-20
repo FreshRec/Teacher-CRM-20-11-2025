@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FinancialTransaction, Student, Expense, ExpenseForCreation, View } from '../types';
+import { FinancialTransaction, Expense, View } from '../types';
 import Modal, { ConfirmationModal } from './Modal';
 import { EditIcon, TrashIcon } from './icons';
 import { useAppContext } from '../AppContext';
@@ -88,7 +88,6 @@ const ExpenseForm: React.FC<{
 const Finance: React.FC<{ navigateTo: (view: View, studentId?: string) => void }> = ({ navigateTo }) => {
     const { transactions, students, expenses, addExpense, updateExpense, deleteExpense, showNotification } = useAppContext();
     const [period, setPeriod] = useState<Period>('month');
-    const [customDates, setCustomDates] = useState<{ start: string, end: string }>({ start: '', end: '' });
     const [activeTab, setActiveTab] = useState<'operations' | 'expenses'>('operations');
     
     const [isExpenseModalOpen, setExpenseModalOpen] = useState(false);
