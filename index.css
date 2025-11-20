@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #4f46e5;
+  --color-secondary: #f9fafb;
+  --color-accent: #10b981;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.whitespace-pre-wrap {
+  white-space: pre-wrap;
+}
