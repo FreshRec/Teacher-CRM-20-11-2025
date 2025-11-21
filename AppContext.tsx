@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { supabase } from './services/supabaseClient';
 import { 
@@ -613,4 +612,3 @@ export const useAppContext = () => {
     }
     return context;
 };
-
