@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { useAppContext } from '../AppContext';
 import { Student, Attendance, StudentForCreation } from '../types';
@@ -36,7 +37,8 @@ const JournalCell: React.FC<{
                 student_id: student.id,
                 date: dateStr,
                 status: nextStatus,
-                grade: record?.grade,
+                // Keep grade only if present, otherwise clear it (pass null)
+                grade: nextStatus === 'present' ? record?.grade : null,
             }, selectedGroupId);
         }
     };
@@ -47,7 +49,7 @@ const JournalCell: React.FC<{
             student_id: student.id,
             date: dateStr,
             status: 'present', 
-            grade: grade
+            grade: grade ?? null // Pass null if undefined to clear the grade
         }, selectedGroupId);
         setGradeModalOpen(false);
     };
