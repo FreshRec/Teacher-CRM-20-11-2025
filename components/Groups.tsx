@@ -4,6 +4,9 @@ import Modal, { ConfirmationModal } from './Modal';
 import { TrashIcon } from './icons';
 import { useAppContext } from '../AppContext';
 
+const UNASSIGNED_GROUP_ID = 'unassigned_students_group';
+const unassignedGroup: Group = { id: UNASSIGNED_GROUP_ID, name: 'Без группы' };
+
 const GroupForm: React.FC<{
     group: Partial<Group> | null;
     onSave: (groupData: GroupForCreation) => void;
@@ -51,9 +54,6 @@ const Groups: React.FC<{ triggerAddGroup: number }> = ({ triggerAddGroup }) => {
     const [activeAutocomplete, setActiveAutocomplete] = useState<string | null>(null);
 
     const activeStudents = useMemo(() => students.filter(s => s.status === 'active'), [students]);
-
-    const UNASSIGNED_GROUP_ID = 'unassigned_students_group';
-    const unassignedGroup: Group = { id: UNASSIGNED_GROUP_ID, name: 'Без группы' };
     
     const allGroupsForDisplay = useMemo(() => {
         const sortedGroups = [...groups].sort((a,b) => a.name.localeCompare(b.name));
