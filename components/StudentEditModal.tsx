@@ -25,7 +25,7 @@ export const StudentEditModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
     student: Partial<Student> | null;
-    onSave: (studentData: any) => void;
+    onSave: (studentData: Partial<Student>) => void;
     onArchive: (studentId: string) => void;
     onProcessPayment: (studentId: string, planId: string, pricePaid: number, lessonsTotal: number) => void | Promise<void>;
     onRefundToBalance: (subscriptionId: string) => void | Promise<void>;
@@ -124,7 +124,7 @@ export const StudentEditModal: React.FC<{
     };
 
     const handleSubmit = () => {
-        const studentData: any = { 
+        const studentData: Partial<Student> = { 
             ...formData, 
             id: student?.id 
         };
@@ -156,10 +156,10 @@ export const StudentEditModal: React.FC<{
                 <div className="space-y-4">
                     <h4 className="font-semibold text-gray-600 md:text-lg">Основная информация</h4>
                     <input name="name" value={formData.name} onChange={handleChange} placeholder="Имя ученика" className={inputStyle} required />
-                    <input type="date" name="birth_date" value={formData.birth_date} onChange={handleChange} className={inputStyle} />
+                    <input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className={inputStyle} />
                     <input name="parent_name" value={formData.parent_name} onChange={handleChange} placeholder="Имя родителя" className={inputStyle} required />
                     <input name="parent_phone1" value={formData.parent_phone1} onChange={handleChange} placeholder="Телефон родителя 1" className={inputStyle} required />
-                    <input name="parent_phone2" value={formData.parent_phone2} onChange={handleChange} placeholder="Телефон родителя 2 (доп.)" className={inputStyle} />
+                    <input name="parent_phone2" value={formData.parent_phone2 || ''} onChange={handleChange} placeholder="Телефон родителя 2 (доп.)" className={inputStyle} />
                     
                     <h4 className="font-semibold text-gray-600 md:text-lg mt-4">Группы</h4>
                     <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto bg-gray-50 p-2 rounded-md border">
