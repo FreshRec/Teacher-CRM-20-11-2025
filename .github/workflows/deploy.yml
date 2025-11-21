@@ -1,56 +1,30 @@
-# This workflow is disabled because Yandex Cloud is not configured.
-# To enable deployment:
-# 1. Configure Yandex Cloud Service Account and Container Registry.
-# 2. Add secrets: YC_SA_JSON_CREDENTIALS, YC_REGISTRY_ID, YC_FOLDER_ID, YC_SA_ID.
-# 3. Uncomment the workflow below.
+name: CI
 
-# name: Deploy to Yandex Cloud
-# on:
-#   push:
-#     branches: [ "main" ]
-#   workflow_dispatch:
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-# jobs:
-#   build-and-deploy:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout code
-#         uses: actions/checkout@v4
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-#       - name: Set up Node.js
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-#       - name: Install dependencies
-#         run: npm install
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-#       - name: Run build
-#         run: npm run build
+      - name: Install dependencies
+        run: npm install
 
-#       - name: Login to Yandex Cloud Container Registry
-#         uses: docker/login-action@v3
-#         with:
-#           registry: cr.yandex
-#           username: json_key
-#           password: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+      - name: Run Lint
+        run: npm run lint
 
-#       - name: Build and push Docker image
-#         uses: docker/build-push-action@v5
-#         with:
-#           context: .
-#           push: true
-#           tags: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/teacher-crm:latest
-
-#       - name: Deploy to Serverless Container
-#         uses: yc-actions/yc-sls-container-deploy@v1
-#         with:
-#           yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
-#           container-name: teacher-crm
-#           folder-id: ${{ secrets.YC_FOLDER_ID }}
-#           revision-service-account-id: ${{ secrets.YC_SA_ID }}
-#           image: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/teacher-crm:latest
-#           revision-cores: 1
-#           revision-memory: 512Mb
-#           revision-concurrency: 4
-#           revision-execution-timeout: 30s
+      - name: Run Build
+        run: npm run build
