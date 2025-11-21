@@ -11,9 +11,7 @@ import {
     DisplayEvent
 } from './types';
 import { notificationService } from './services/notificationService';
-
-export const SYSTEM_SUBSCRIPTION_PLAN_ID = '00000000-0000-0000-0000-000000000000';
-export const DEFAULT_LESSON_PRICE = 0; // Default price for a debt lesson
+import { SYSTEM_SUBSCRIPTION_PLAN_ID } from './constants';
 
 const AppContext = createContext<IAppContext | null>(null);
 
@@ -122,6 +120,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 return;
             }
             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitize = (data: any[] | null | undefined) => Array.isArray(data) ? data : [];
 
             const sanitizedGroups = sanitize(groupsRaw).filter(g => g && g.id && g.name).map(g => ({...g}));
@@ -195,6 +194,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             setStudents(enrichedStudents);
     
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             showNotification(`Критическая ошибка загрузки данных: ${error.message}`, 'error');
         } finally {
@@ -228,7 +228,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             if (event.is_recurring) {
                 const duration = endDate.getTime() - startDate.getTime();
-                let nextDate = new Date(startDate);
+                const nextDate = new Date(startDate);
     
                 for (let i = 1; i <= 52; i++) { // Generate for 1 year
                     nextDate.setDate(nextDate.getDate() + 7);
@@ -521,7 +521,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
 
             if (freshSub) {
-                const { error: subUpdateError } = await supabase.from('student_subscriptions').update({ lessons_attended: Math.max(0, freshSub.lessons_attended - 1) }).eq('id', existing.student_subscription_id);
+                const newCount = Math.max(0, freshSub.lessons_attended - 1);
+                const { error: subUpdateError } = await supabase.from('student_subscriptions').update({ lessons_attended: newCount }).eq('id', existing.student_subscription_id);
                 if (subUpdateError) {
                     console.error("Error decrementing subscription:", subUpdateError);
                     showNotification("Ошибка при обновлении счетчика занятий", 'error');
@@ -591,11 +592,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const clearStudentFinancialData = async (): Promise<void> => {
         setIsSaving(true);
         // Delete all transactions, subscriptions, attendance
-        await supabase.from('financial_transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
-        await supabase.from('student_subscriptions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        await supabase.from('attendance').delete().neq('student_id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('financial_transactions').delete().neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID); 
+        await supabase.from('student_subscriptions').delete().neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID);
+        await supabase.from('attendance').delete().neq('student_id', SYSTEM_SUBSCRIPTION_PLAN_ID);
         // Reset student balances
-        await supabase.from('students').update({ balance: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('students').update({ balance: 0 }).neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID);
         
         await fetchData(false);
         setIsSaving(false);
