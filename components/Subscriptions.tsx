@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { SubscriptionPlan, SubscriptionPlanForCreation } from '../types';
 import Modal from './Modal';
-import { useAppContext, SYSTEM_SUBSCRIPTION_PLAN_ID } from '../AppContext';
+import { useAppContext } from '../AppContext';
+import { SYSTEM_SUBSCRIPTION_PLAN_ID } from '../constants';
 
 const StarIcon: React.FC<{ isFilled: boolean } & React.SVGProps<SVGSVGElement>> = ({ isFilled, ...props }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" {...props}>
