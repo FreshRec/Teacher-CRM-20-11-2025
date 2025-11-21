@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { supabase } from './services/supabaseClient';
 import { 
@@ -490,7 +491,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (!subToUse) subToUse = activeSubs.find(s => s.assigned_group_id === null);
 
             if (subToUse && !existing?.student_subscription_id) {
-                 // Use read-then-update logic instead of unsupported .increment
+                 // Replaced .increment with select + update
                  const { data: currentSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', subToUse.id).single();
                  if (currentSub) {
                      await supabase.from('student_subscriptions').update({ lessons_attended: currentSub.lessons_attended + 1 }).eq('id', subToUse.id);
@@ -510,14 +511,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         const existing = attendance.find(a => a.student_id === studentId && a.date === date);
         if (existing?.student_subscription_id) {
-            // Use read-then-update logic instead of unsupported .decrement
+            // Replaced .decrement with select + update
             const { data: currentSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', existing.student_subscription_id).single();
             if (currentSub) {
                  await supabase.from('student_subscriptions').update({ lessons_attended: Math.max(0, currentSub.lessons_attended - 1) }).eq('id', existing.student_subscription_id);
             }
         }
         
-        // Use .eq() chain instead of deprecated .match()
+        // Replaced .match with .eq()
         await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
         await fetchData(false);
     };
