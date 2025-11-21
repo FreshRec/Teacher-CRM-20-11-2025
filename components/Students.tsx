@@ -117,18 +117,19 @@ const Students: React.FC<StudentsProps> = ({ triggerAddStudent }) => {
         setModalOpen(true);
     };
     
-    const handleSave = async (studentData: any) => {
+    const handleSave = async (studentData: Partial<Student>) => {
         const isNew = !studentData.id;
         
-        let finalStudentData = { ...studentData };
+        const finalStudentData = { ...studentData };
         if (!finalStudentData.birth_date) {
             finalStudentData.birth_date = null;
         }
 
         if (isNew) {
-            delete finalStudentData.id;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { id, ...dataToCreate } = finalStudentData;
             const studentToCreate: StudentForCreation = {
-                ...finalStudentData,
+                ...(dataToCreate as StudentForCreation),
                 balance: 0,
                 status: 'active',
             };
@@ -136,8 +137,10 @@ const Students: React.FC<StudentsProps> = ({ triggerAddStudent }) => {
             if(result) showNotification('Ученик добавлен.');
         } else {
             const { id, ...updates } = finalStudentData;
-            const result = await updateStudent(id, updates);
-            if(result) showNotification('Данные ученика обновлены.');
+            if (id) {
+                const result = await updateStudent(id, updates);
+                if(result) showNotification('Данные ученика обновлены.');
+            }
         }
         setModalOpen(false);
     };
