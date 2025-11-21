@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { supabase } from './services/supabaseClient';
 import { 
@@ -11,6 +10,7 @@ import {
     DisplayEvent
 } from './types';
 import { notificationService } from './services/notificationService';
+import { SYSTEM_SUBSCRIPTION_PLAN_ID } from './constants';
 
 const AppContext = createContext<IAppContext | null>(null);
 
@@ -35,6 +35,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [expenses, setExpenses] = useState<Expense[]>([]);
     
     const [notifications, setNotifications] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([]);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -491,6 +492,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (!subToUse) subToUse = activeSubs.find(s => s.assigned_group_id === null);
 
             if (subToUse && !existing?.student_subscription_id) {
+                 // Replaced .increment with select + update
                  const { data: currentSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', subToUse.id).single();
                  if (currentSub) {
                      await supabase.from('student_subscriptions').update({ lessons_attended: currentSub.lessons_attended + 1 }).eq('id', subToUse.id);
@@ -510,12 +512,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         const existing = attendance.find(a => a.student_id === studentId && a.date === date);
         if (existing?.student_subscription_id) {
+            // Replaced .decrement with select + update
             const { data: currentSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', existing.student_subscription_id).single();
             if (currentSub) {
                 await supabase.from('student_subscriptions').update({ lessons_attended: Math.max(0, currentSub.lessons_attended - 1) }).eq('id', existing.student_subscription_id);
             }
         }
         
+        // Replaced .match with chained .eq calls
         await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
         await fetchData(false);
     };
@@ -574,11 +578,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const clearStudentFinancialData = async (): Promise<void> => {
         setIsSaving(true);
         // Delete all transactions, subscriptions, attendance
-        await supabase.from('financial_transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
-        await supabase.from('student_subscriptions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        await supabase.from('attendance').delete().neq('student_id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('financial_transactions').delete().neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID); 
+        await supabase.from('student_subscriptions').delete().neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID);
+        await supabase.from('attendance').delete().neq('student_id', SYSTEM_SUBSCRIPTION_PLAN_ID);
         // Reset student balances
-        await supabase.from('students').update({ balance: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('students').update({ balance: 0 }).neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID);
         
         await fetchData(false);
         setIsSaving(false);
