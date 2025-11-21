@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FinancialTransaction, View, Attendance } from '../types';
+import { FinancialTransaction, View, Attendance, Student } from '../types';
 import { useAppContext } from '../AppContext';
 import { StudentEditModal } from './StudentEditModal';
 import { SettingsIcon } from './icons';
@@ -150,17 +150,19 @@ export const StudentFinanceHistory: React.FC<{ studentId: string; navigateTo: (v
         return history.reverse();
     }, [student, transactions, attendance, subscriptionPlans]);
     
-    const handleSaveStudent = async (studentData: any) => {
+    const handleSaveStudent = async (studentData: Partial<Student>) => {
         if (!studentData.id) return;
         
-        let finalStudentData = { ...studentData };
+        const finalStudentData = { ...studentData };
         if (!finalStudentData.birth_date) {
             finalStudentData.birth_date = null;
         }
 
         const { id, ...updates } = finalStudentData;
-        const result = await context.updateStudent(id, updates);
-        if(result) context.showNotification('Данные ученика обновлены.');
+        if (id) {
+            const result = await context.updateStudent(id, updates);
+            if(result) context.showNotification('Данные ученика обновлены.');
+        }
         setEditModalOpen(false);
     };
 
