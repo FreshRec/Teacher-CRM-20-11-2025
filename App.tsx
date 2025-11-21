@@ -177,7 +177,7 @@ const App: React.FC = () => {
                         </button>
                     </div>
                 );
-            case 'journal':
+            case 'journal': {
                 const journalDateDisplayRaw = isDesktop
                     ? journalDate.toLocaleString(locale, { month: 'long', year: 'numeric' })
                     : `${journalWeekDays[0].toLocaleDateString(locale, {day: 'numeric', month: 'short'})} - ${journalWeekDays[6].toLocaleDateString(locale, {day: 'numeric', month: 'short'})}`;
@@ -213,7 +213,8 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 );
-            case 'schedule':
+            }
+            case 'schedule': {
                 type CalendarView = 'week' | 'month' | 'year';
                 const ViewButton: React.FC<{ view: CalendarView, label: string }> = ({ view, label }) => (
                     <button onClick={() => setCalendarView(view)} className={`px-3 py-1 text-sm md:text-base rounded-md ${calendarView === view ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border'}`}>{label}</button>
@@ -254,11 +255,13 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 );
+            }
             case 'finance':
                  return <h2 className="text-3xl font-bold text-gray-800 md:text-4xl">Финансы</h2>;
-            case 'studentFinance':
+            case 'studentFinance': {
                 const student = students.find(s => s.id === activeStudentId);
                 return <h2 className="text-3xl font-bold text-gray-800 md:text-4xl">Финансовая история: {student?.name || ''}</h2>;
+            }
             default:
                 return titleMap[view] ? <h2 className="text-3xl font-bold text-gray-800 md:text-4xl">{titleMap[view]}</h2> : null;
         }
