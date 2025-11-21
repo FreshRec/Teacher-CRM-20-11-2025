@@ -492,6 +492,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (!subToUse) subToUse = activeSubs.find(s => s.assigned_group_id === null);
 
             if (subToUse && !existing?.student_subscription_id) {
+                 // Manual increment
                  const { data: freshSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', subToUse.id).single();
                  if (freshSub) {
                      await supabase.from('student_subscriptions').update({ lessons_attended: freshSub.lessons_attended + 1 }).eq('id', subToUse.id);
@@ -514,6 +515,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         const existing = attendance.find(a => a.student_id === studentId && a.date === date);
         if (existing?.student_subscription_id) {
+            // Manual decrement
             const { data: freshSub, error: subFetchError } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', existing.student_subscription_id).single();
             
             if (subFetchError) {
