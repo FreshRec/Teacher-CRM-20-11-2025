@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { supabase } from './services/supabaseClient';
 import { 
@@ -502,7 +503,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         const { error } = await supabase.from('attendance').upsert(record);
-        if (error) console.error(error);
+        if (error) {
+            console.error(error);
+            showNotification(`Ошибка сохранения посещаемости: ${error.message}`, 'error');
+        }
         
         await fetchData(false);
     };
@@ -510,13 +514,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         const existing = attendance.find(a => a.student_id === studentId && a.date === date);
         if (existing?.student_subscription_id) {
-            const { data: freshSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', existing.student_subscription_id).single();
+            const { data: freshSub, error: subFetchError } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', existing.student_subscription_id).single();
+            
+            if (subFetchError) {
+                console.error("Error fetching subscription for decrement:", subFetchError);
+            }
+
             if (freshSub) {
-                await supabase.from('student_subscriptions').update({ lessons_attended: Math.max(0, freshSub.lessons_attended - 1) }).eq('id', existing.student_subscription_id);
+                const { error: subUpdateError } = await supabase.from('student_subscriptions').update({ lessons_attended: Math.max(0, freshSub.lessons_attended - 1) }).eq('id', existing.student_subscription_id);
+                if (subUpdateError) {
+                    console.error("Error decrementing subscription:", subUpdateError);
+                    showNotification("Ошибка при обновлении счетчика занятий", 'error');
+                }
             }
         }
         
-        await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
+        const { error } = await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
+        if (error) {
+            console.error(error);
+            showNotification(`Ошибка удаления посещаемости: ${error.message}`, 'error');
+        }
         await fetchData(false);
     };
 
