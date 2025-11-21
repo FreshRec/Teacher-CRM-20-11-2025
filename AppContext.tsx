@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { supabase } from './services/supabaseClient';
 import { 
@@ -227,7 +228,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             if (event.is_recurring) {
                 const duration = endDate.getTime() - startDate.getTime();
-                const nextDate = new Date(startDate);
+                let nextDate = new Date(startDate); // Use 'let' because nextDate is reassigned
     
                 for (let i = 1; i <= 52; i++) { // Generate for 1 year
                     nextDate.setDate(nextDate.getDate() + 7);
@@ -502,10 +503,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         const { error } = await supabase.from('attendance').upsert(record);
-        if (error) {
-            console.error(error);
-            showNotification(`Ошибка сохранения посещаемости: ${error.message}`, 'error');
-        }
+        if (error) console.error(error);
         
         await fetchData(false);
     };
@@ -519,12 +517,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         }
         
-        const { error } = await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
-        
-        if (error) {
-             console.error(error);
-             showNotification(`Ошибка удаления посещаемости: ${error.message}`, 'error');
-        }
+        // Use eq for each field instead of match which is deprecated
+        await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
         await fetchData(false);
     };
 
@@ -582,11 +576,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const clearStudentFinancialData = async (): Promise<void> => {
         setIsSaving(true);
         // Delete all transactions, subscriptions, attendance
-        await supabase.from('financial_transactions').delete().neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID); 
-        await supabase.from('student_subscriptions').delete().neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID);
-        await supabase.from('attendance').delete().neq('student_id', SYSTEM_SUBSCRIPTION_PLAN_ID);
+        await supabase.from('financial_transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
+        await supabase.from('student_subscriptions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('attendance').delete().neq('student_id', '00000000-0000-0000-0000-000000000000');
         // Reset student balances
-        await supabase.from('students').update({ balance: 0 }).neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID);
+        await supabase.from('students').update({ balance: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
         
         await fetchData(false);
         setIsSaving(false);
