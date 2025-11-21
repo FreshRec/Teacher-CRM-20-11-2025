@@ -1,13 +1,12 @@
-name: CI
+name: Deploy to Yandex Object Storage
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,10 +20,21 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Run Lint
-        run: npm run lint
-
-      - name: Run Build
+      - name: Build Project
         run: npm run build
+
+      - name: Configure AWS Credentials for Yandex Cloud
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.YC_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.YC_SECRET_ACCESS_KEY }}
+          aws-region: ru-central1
+
+      - name: Upload to Yandex Object Storage
+        run: |
+          aws s3 sync ./dist s3://${{ secrets.YC_BUCKET_NAME }} \
+            --endpoint-url=https://storage.yandexcloud.net \
+            --delete \
+            --acl public-read
