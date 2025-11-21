@@ -10,9 +10,9 @@ import {
     DisplayEvent
 } from './types';
 import { notificationService } from './services/notificationService';
+import { SYSTEM_SUBSCRIPTION_PLAN_ID } from './constants';
 
-export const SYSTEM_SUBSCRIPTION_PLAN_ID = '00000000-0000-0000-0000-000000000000';
-export const DEFAULT_LESSON_PRICE = 0; // Default price for a debt lesson
+export { SYSTEM_SUBSCRIPTION_PLAN_ID };
 
 const AppContext = createContext<IAppContext | null>(null);
 
