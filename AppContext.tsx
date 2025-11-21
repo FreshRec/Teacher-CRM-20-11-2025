@@ -10,9 +10,9 @@ import {
     DisplayEvent
 } from './types';
 import { notificationService } from './services/notificationService';
-import { SYSTEM_SUBSCRIPTION_PLAN_ID } from './constants';
 
-export { SYSTEM_SUBSCRIPTION_PLAN_ID };
+export const SYSTEM_SUBSCRIPTION_PLAN_ID = '00000000-0000-0000-0000-000000000000';
+export const DEFAULT_LESSON_PRICE = 0; // Default price for a debt lesson
 
 const AppContext = createContext<IAppContext | null>(null);
 
@@ -206,11 +206,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const exceptionsMap: Map<string, ScheduleEventException> = new Map(eventExceptions.map(ex => [`${ex.original_event_id}-${ex.original_start_time}`, ex]));
     
         scheduleEvents.forEach(event => {
-            if (!event) return; 
-            if (!event.start || !event.end) return;
+            if (!event) return; // Prevent crash on null records
+            if (!event.start || !event.end) {
+                console.error('Event with missing start/end date:', event);
+                return;
+            }
             const startDate = new Date(event.start);
             const endDate = new Date(event.end);
-            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return;
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                console.error('Event with invalid start/end date:', event);
+                return;
+            }
             
             allEvents.push({ 
                 ...event, 
@@ -223,24 +229,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const duration = endDate.getTime() - startDate.getTime();
                 let nextDate = new Date(startDate);
     
-                for (let i = 1; i <= 52; i++) { 
+                for (let i = 1; i <= 52; i++) { // Generate for 1 year
                     nextDate.setDate(nextDate.getDate() + 7);
                     
                     const occurrenceStartDate = new Date(nextDate);
                     const occurrenceKey = getOccurrenceKey(occurrenceStartDate);
                     const exception = exceptionsMap.get(`${event.id}-${occurrenceKey}`);
     
-                    if (exception?.is_deleted) continue;
+                    if (exception?.is_deleted) {
+                        continue;
+                    }
                     
                     const finalStartStr = exception?.new_start_time || occurrenceStartDate.toISOString();
                     const finalStartDate = new Date(finalStartStr);
-                    if (isNaN(finalStartDate.getTime())) continue;
+                    if (isNaN(finalStartDate.getTime())) {
+                        console.error('Skipping recurring instance due to invalid start date:', { event, exception });
+                        continue;
+                    }
     
                     const finalEndDate = exception?.new_end_time 
                         ? new Date(exception.new_end_time) 
                         : new Date(finalStartDate.getTime() + duration);
                     
-                    if (isNaN(finalEndDate.getTime())) continue;
+                    if (isNaN(finalEndDate.getTime())) {
+                        console.error('Skipping recurring instance due to invalid end date:', { event, exception });
+                        continue;
+                    }
     
                     allEvents.push({
                         ...event,
@@ -298,6 +312,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const updateStudent = async (id: string, updates: Partial<Student>): Promise<Student | null> => {
         setIsSaving(true);
+        // Exclude join fields from update payload
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { subscriptions, transactions, ...updatePayload } = updates;
         const { data, error } = await supabase.from('students').update(updatePayload).eq('id', id).select().single();
@@ -358,6 +373,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const updateSubscriptionPlan = async (id: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | null> => {
         setIsSaving(true);
         if (updates.is_default) {
+            // Unset other defaults
             await supabase.from('subscription_plans').update({ is_default: false }).neq('id', id);
         }
         const { data, error } = await supabase.from('subscription_plans').update(updates).eq('id', id).select().single();
@@ -376,9 +392,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const addStudentSubscription = async (sub: StudentSubscriptionForCreation): Promise<StudentSubscription | null> => {
         setIsSaving(true);
         
+        // 1. Create Subscription
         const { data: newSub, error: subError } = await supabase.from('student_subscriptions').insert(sub).select().single();
         if (subError) { showNotification(subError.message, 'error'); setIsSaving(false); return null; }
 
+        // 2. Create Transaction (Payment)
         const transaction: FinancialTransactionForCreation = {
             student_id: sub.student_id,
             type: 'payment',
@@ -411,6 +429,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const pricePerLesson = sub.lessons_total > 0 ? sub.price_paid / sub.lessons_total : 0;
         const refundAmount = lessonsRemaining * pricePerLesson;
 
+        // 1. Create Refund Transaction
         await supabase.from('financial_transactions').insert({
             student_id: sub.student_id,
             type: 'refund',
@@ -419,6 +438,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             student_subscription_id: sub.id
         });
 
+        // 2. Cancel Subscription (delete)
         await supabase.from('student_subscriptions').delete().eq('id', subscriptionId);
         
         await fetchData(false);
@@ -435,6 +455,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const pricePerLesson = sub.lessons_total > 0 ? sub.price_paid / sub.lessons_total : 0;
         const refundAmount = lessonsRemaining * pricePerLesson;
 
+        // 1. Create Refund Transaction (cash flow out)
         await supabase.from('financial_transactions').insert({
             student_id: sub.student_id,
             type: 'refund',
@@ -470,7 +491,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (!subToUse) subToUse = activeSubs.find(s => s.assigned_group_id === null);
 
             if (subToUse && !existing?.student_subscription_id) {
-                 // Manual increment replacement
                  const { data: freshSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', subToUse.id).single();
                  if (freshSub) {
                      await supabase.from('student_subscriptions').update({ lessons_attended: freshSub.lessons_attended + 1 }).eq('id', subToUse.id);
@@ -490,7 +510,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         const existing = attendance.find(a => a.student_id === studentId && a.date === date);
         if (existing?.student_subscription_id) {
-             // Manual decrement replacement
             const { data: freshSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', existing.student_subscription_id).single();
             if (freshSub) {
                 await supabase.from('student_subscriptions').update({ lessons_attended: Math.max(0, freshSub.lessons_attended - 1) }).eq('id', existing.student_subscription_id);
@@ -554,9 +573,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const clearStudentFinancialData = async (): Promise<void> => {
         setIsSaving(true);
+        // Delete all transactions, subscriptions, attendance
         await supabase.from('financial_transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
         await supabase.from('student_subscriptions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         await supabase.from('attendance').delete().neq('student_id', '00000000-0000-0000-0000-000000000000');
+        // Reset student balances
         await supabase.from('students').update({ balance: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
         
         await fetchData(false);
