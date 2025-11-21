@@ -1,2 +1,2 @@
 export const SYSTEM_SUBSCRIPTION_PLAN_ID = '00000000-0000-0000-0000-000000000000';
-export const DEFAULT_LESSON_PRICE = 0;
+export const DEFAULT_LESSON_PRICE = 0; // Default price for a debt lesson
