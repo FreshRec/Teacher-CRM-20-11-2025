@@ -228,17 +228,19 @@ const Journal: React.FC<JournalProps> = ({ currentDate, selectedGroupId, isDeskt
         setStudentModalOpen(true);
     };
 
-    const handleSaveStudent = async (studentData: any) => {
+    const handleSaveStudent = async (studentData: Partial<Student>) => {
         if (!studentData.id) return;
         
-        let finalStudentData = { ...studentData };
+        const finalStudentData = { ...studentData };
         if (!finalStudentData.birth_date) {
             finalStudentData.birth_date = null;
         }
 
         const { id, ...updates } = finalStudentData;
-        const result = await context.updateStudent(id, updates);
-        if(result) context.showNotification('Данные ученика обновлены.');
+        if (id) {
+            const result = await context.updateStudent(id, updates);
+            if(result) context.showNotification('Данные ученика обновлены.');
+        }
         setStudentModalOpen(false);
     };
     
