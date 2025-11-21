@@ -11,7 +11,6 @@ import {
     DisplayEvent
 } from './types';
 import { notificationService } from './services/notificationService';
-import { SYSTEM_SUBSCRIPTION_PLAN_ID } from './constants';
 
 const AppContext = createContext<IAppContext | null>(null);
 
@@ -492,7 +491,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (!subToUse) subToUse = activeSubs.find(s => s.assigned_group_id === null);
 
             if (subToUse && !existing?.student_subscription_id) {
-                 // Replace increment with manual update
+                 // Manually increment lessons_attended
                  const { data: currentSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', subToUse.id).single();
                  if (currentSub) {
                      await supabase.from('student_subscriptions').update({ lessons_attended: currentSub.lessons_attended + 1 }).eq('id', subToUse.id);
@@ -512,14 +511,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         const existing = attendance.find(a => a.student_id === studentId && a.date === date);
         if (existing?.student_subscription_id) {
-            // Replace decrement with manual update
+            // Manually decrement lessons_attended
             const { data: currentSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', existing.student_subscription_id).single();
             if (currentSub) {
                 await supabase.from('student_subscriptions').update({ lessons_attended: Math.max(0, currentSub.lessons_attended - 1) }).eq('id', existing.student_subscription_id);
             }
         }
         
-        // Replace match with chained eq
         await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
         await fetchData(false);
     };
