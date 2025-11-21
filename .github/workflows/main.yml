@@ -1,12 +1,30 @@
-# This workflow is disabled in favor of deploy.yml
-# name: CI/CD
-# on:
-#   push:
-#     branches: [ "main" ]
-#   pull_request:
-#     branches: [ "main" ]
-# jobs:
-#   dummy:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - run: echo "This workflow is disabled."
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # cache: 'npm' removed because package-lock.json might be missing
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Lint
+        run: npm run lint
+
+      - name: Run Build
+        run: npm run build
