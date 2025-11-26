@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { View } from './types';
 import { DashboardIcon, StudentsIcon, JournalIcon, SubscriptionsIcon, ScheduleIcon, FinanceIcon, ArchiveIcon, MenuIcon, GroupsIcon, LogoutIcon, AdminIcon } from './components/icons';
@@ -11,7 +10,7 @@ import Finance from './components/Finance';
 import Archive from './components/Archive';
 import Groups from './components/Groups';
 import AdminPanel from './components/AdminPanel';
-import Auth from './components/Auth';
+import Auth, { UpdatePassword } from './components/Auth';
 import { supabase } from './services/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
@@ -369,6 +368,7 @@ const AuthenticatedApp: React.FC = () => {
 const App: React.FC = () => {
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isRecovery, setIsRecovery] = useState(false);
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -378,8 +378,11 @@ const App: React.FC = () => {
 
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        } = supabase.auth.onAuthStateChange((event, session) => {
             setSession(session);
+            if (event === 'PASSWORD_RECOVERY') {
+                setIsRecovery(true);
+            }
         });
 
         return () => subscription.unsubscribe();
@@ -394,6 +397,10 @@ const App: React.FC = () => {
                     </svg>
             </div>
         )
+    }
+
+    if (isRecovery) {
+        return <UpdatePassword onSuccess={() => setIsRecovery(false)} />;
     }
 
     if (!session) {
