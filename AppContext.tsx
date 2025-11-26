@@ -516,6 +516,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         }
         
+        // Fix: Use .eq() instead of .match() for v2 compatibility
         await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
         await fetchData(false);
     };
