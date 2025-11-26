@@ -5,6 +5,14 @@ import { Student, Attendance, StudentForCreation } from '../types';
 import { StudentEditModal } from './StudentEditModal';
 import Modal, { ConfirmationModal } from './Modal';
 
+// Helper to format date as YYYY-MM-DD in local time
+const toLocalISOString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const JournalCell: React.FC<{
     student: Student;
     date: Date;
@@ -17,7 +25,7 @@ const JournalCell: React.FC<{
     const [isGradeModalOpen, setGradeModalOpen] = useState(false);
 
     const handleAttendanceCycle = async () => {
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = toLocalISOString(date);
         const currentStatus = record?.status;
         let nextStatus: 'present' | 'absent' | 'excused' | undefined = undefined;
 
@@ -44,7 +52,7 @@ const JournalCell: React.FC<{
     };
     
     const handleSetGrade = async (grade?: number) => {
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = toLocalISOString(date);
         await context.setAttendanceRecord({
             student_id: student.id,
             date: dateStr,
@@ -215,7 +223,8 @@ const Journal: React.FC<JournalProps> = ({ currentDate, selectedGroupId, isDeskt
     }, [context.students, selectedGroupId]);
 
     const displayedAttendance = useMemo(() => {
-        const displayedDateStrings = new Set(daysToDisplay.map(d => d.toISOString().split('T')[0]));
+        // Use local date string formatting
+        const displayedDateStrings = new Set(daysToDisplay.map(d => toLocalISOString(d)));
         const records = new Map<string, Attendance>();
         context.attendance.forEach(a => {
             if (displayedDateStrings.has(a.date)) {
@@ -404,7 +413,7 @@ const Journal: React.FC<JournalProps> = ({ currentDate, selectedGroupId, isDeskt
                                     {student.name}
                                 </td>
                                 {daysToDisplay.map(day => {
-                                    const dateKey = day.toISOString().split('T')[0];
+                                    const dateKey = toLocalISOString(day);
                                     const record = displayedAttendance.get(`${student.id}-${dateKey}`);
                                     return <JournalCell
                                         key={day.toISOString()}
