@@ -15,7 +15,7 @@ import {
     UserPermissions
 } from './types';
 import { notificationService } from './services/notificationService';
-import { DEFAULT_LESSON_PRICE } from './constants';
+import { SYSTEM_SUBSCRIPTION_PLAN_ID, DEFAULT_LESSON_PRICE } from './constants';
 
 const AppContext = createContext<IAppContext | null>(null);
 
@@ -126,7 +126,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!session?.user) return;
 
         // Try to get profile
-        let { data: profile, error } = await supabase
+        let { data: profile } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
@@ -312,7 +312,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             if (event.is_recurring) {
                 const duration = endDate.getTime() - startDate.getTime();
-                const nextDate = new Date(startDate);
+                let nextDate = new Date(startDate);
     
                 for (let i = 1; i <= 52; i++) { // Generate for 1 year
                     nextDate.setDate(nextDate.getDate() + 7);
@@ -414,320 +414,184 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const deleteStudents = async (ids: string[]): Promise<boolean> => {
         setIsSaving(true);
-        try {
-            const { error: txError } = await supabase.from('financial_transactions').delete().in('student_id', ids);
-            if (txError) throw txError;
-
-            const { error: attendanceError } = await supabase.from('attendance').delete().in('student_id', ids);
-            if (attendanceError) throw attendanceError;
-
-            const { error: subError } = await supabase.from('student_subscriptions').delete().in('student_id', ids);
-            if (subError) throw subError;
-
-            const { error: studentError } = await supabase.from('students').delete().in('id', ids);
-            if (studentError) throw studentError;
-
-            await fetchData(false);
-            return true;
-        } catch (error: any) {
-            showNotification(`Ошибка при удалении: ${error.message}`, 'error');
-            return false;
-        } finally {
+        const { error } = await supabase.from('students').delete().in('id', ids);
+        if (error) {
+            showNotification(`Ошибка удаления: ${error.message}`, 'error');
             setIsSaving(false);
-        }
-    };
-    
-    const addGroup = async (group: GroupForCreation): Promise<Group | null> => {
-        setIsSaving(true);
-        const { data, error } = await supabase.from('groups').insert(group).select().single();
-        if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return null; }
-        await fetchData(false);
-        setIsSaving(false);
-        return data;
-    };
-    
-    const updateGroup = async (id: string, updates: Partial<Group>): Promise<Group | null> => {
-        setIsSaving(true);
-        const { data, error } = await supabase.from('groups').update(updates).eq('id', id).select().single();
-        if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return null; }
-        await fetchData(false);
-        setIsSaving(false);
-        return data;
-    };
-    
-    const deleteGroup = async (id: string): Promise<boolean> => {
-        setIsSaving(true);
-        try {
-            const { data: studentsToUpdate, error: fetchError } = await supabase
-                .from('students')
-                .select('id, group_ids')
-                .contains('group_ids', [id]);
-    
-            if (fetchError) throw fetchError;
-    
-            const studentUpdatePromises = (studentsToUpdate || []).map(student => {
-                const newGroupIds = student.group_ids.filter((groupId: string) => groupId !== id);
-                return supabase.from('students').update({ group_ids: newGroupIds }).eq('id', student.id);
-            });
-    
-            const studentUpdateResults = await Promise.all(studentUpdatePromises);
-            const studentUpdateError = studentUpdateResults.find(res => res.error);
-            if (studentUpdateError) throw studentUpdateError.error;
-    
-            const { error: groupDeleteError } = await supabase.from('groups').delete().eq('id', id);
-            if (groupDeleteError) throw groupDeleteError;
-    
-            await fetchData(false);
-            return true;
-        } catch (error: any) {
-            showNotification(`Ошибка при удалении группы: ${error.message}`, 'error');
             return false;
-        } finally {
-            setIsSaving(false);
         }
-    };
-    
-    const addSubscriptionPlan = async (plan: SubscriptionPlanForCreation): Promise<SubscriptionPlan | null> => {
-        setIsSaving(true);
-        const { data, error } = await supabase.from('subscription_plans').insert(plan).select().single();
-        if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return null; }
-        await fetchData(false);
-        setIsSaving(false);
-        return data;
-    };
-
-    const updateSubscriptionPlan = async (id: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | null> => {
-        setIsSaving(true);
-        if (updates.is_default) {
-            await supabase.from('subscription_plans').update({ is_default: false }).neq('id', id);
-        }
-        const { data, error } = await supabase.from('subscription_plans').update(updates).eq('id', id).select().single();
-        if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return null; }
-        await fetchData(false);
-        setIsSaving(false);
-        return data;
-    };
-    
-    const deleteSubscriptionPlan = async (id: string): Promise<boolean> => {
-        setIsSaving(true);
-        const { error } = await supabase.from('subscription_plans').delete().eq('id', id);
-        if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return false; }
         await fetchData(false);
         setIsSaving(false);
         return true;
     };
 
-    const addTransaction = async (transaction: FinancialTransactionForCreation): Promise<FinancialTransaction | null> => {
-        const { data: txData, error: txError } = await supabase.from('financial_transactions').insert(transaction).select().single();
-        if (txError) { showNotification(`Ошибка транзакции: ${txError.message}`, 'error'); return null; }
-
-        const student = students.find(s => s.id === transaction.student_id);
-        if (student) {
-            let newBalance = student.balance;
-            
-            if (transaction.type === 'refund' || transaction.type === 'correction') {
-                newBalance += transaction.amount;
-            } else if (transaction.type === 'debit') {
-                newBalance -= transaction.amount;
-            }
-
-            if (newBalance !== student.balance) {
-                await supabase.from('students').update({ balance: newBalance }).eq('id', student.id);
-            }
-        }
-        return txData;
+    // Groups
+    const addGroup = async (group: GroupForCreation): Promise<Group | null> => {
+        setIsSaving(true);
+        const { data, error } = await supabase.from('groups').insert(group).select().single();
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
+        await fetchData(false); setIsSaving(false); return data as Group;
     };
-    
+
+    const updateGroup = async (id: string, updates: Partial<Group>): Promise<Group | null> => {
+        setIsSaving(true);
+        const { data, error } = await supabase.from('groups').update(updates).eq('id', id).select().single();
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
+        await fetchData(false); setIsSaving(false); return data as Group;
+    };
+
+    const deleteGroup = async (id: string): Promise<boolean> => {
+        setIsSaving(true);
+        const { error } = await supabase.from('groups').delete().eq('id', id);
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return false; }
+        await fetchData(false); setIsSaving(false); return true;
+    };
+
+    // Subscription Plans
+    const addSubscriptionPlan = async (plan: SubscriptionPlanForCreation): Promise<SubscriptionPlan | null> => {
+        setIsSaving(true);
+        const { data, error } = await supabase.from('subscription_plans').insert(plan).select().single();
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
+        await fetchData(false); setIsSaving(false); return data as SubscriptionPlan;
+    };
+
+    const updateSubscriptionPlan = async (id: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | null> => {
+        setIsSaving(true);
+        if (updates.is_default) {
+            // Unset other defaults
+            await supabase.from('subscription_plans').update({ is_default: false }).neq('id', id);
+        }
+        const { data, error } = await supabase.from('subscription_plans').update(updates).eq('id', id).select().single();
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
+        await fetchData(false); setIsSaving(false); return data as SubscriptionPlan;
+    };
+
+    const deleteSubscriptionPlan = async (id: string): Promise<boolean> => {
+        setIsSaving(true);
+        const { error } = await supabase.from('subscription_plans').delete().eq('id', id);
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return false; }
+        await fetchData(false); setIsSaving(false); return true;
+    };
+
+    // Student Subscriptions & Finance
     const addStudentSubscription = async (sub: StudentSubscriptionForCreation): Promise<StudentSubscription | null> => {
         setIsSaving(true);
-        try {
-            const { data: newSubData, error } = await supabase.from('student_subscriptions').insert(sub).select().single();
-            if (error || !newSubData) throw error || new Error("Failed to create subscription");
+        
+        // 1. Create Subscription
+        const { data: newSub, error: subError } = await supabase.from('student_subscriptions').insert(sub).select().single();
+        if (subError) { showNotification(subError.message, 'error'); setIsSaving(false); return null; }
 
-            const plan = subscriptionPlans.find(p => p.id === sub.subscription_plan_id);
-            await addTransaction({
-                student_id: sub.student_id,
-                type: 'payment',
-                amount: sub.price_paid,
-                description: `Оплата абонемента: ${plan?.name || ''}`,
-                student_subscription_id: newSubData.id,
-            });
-            
-            // Check for debt attendance and cover it
-            const { data: debtAttendanceData } = await supabase.from('attendance').select('*').eq('student_id', sub.student_id).is('student_subscription_id', null).in('status', ['present', 'absent']);
-            const debtAttendance = debtAttendanceData || [];
-            
-            let lessonsToDeduct = 0;
-            if (debtAttendance.length > 0) {
-                lessonsToDeduct = Math.min(debtAttendance.length, newSubData.lessons_total);
-                
-                const attendanceToUpdate = debtAttendance.slice(0, lessonsToDeduct);
-                // We must update attendance records to point to new sub
-                const updates = attendanceToUpdate.map(a => ({...a, student_subscription_id: newSubData.id}));
-                
-                const { error: upsertError } = await supabase.from('attendance').upsert(updates);
-                if (upsertError) throw upsertError;
-                
-                const debtAmountToClear = lessonsToDeduct * DEFAULT_LESSON_PRICE;
-                if (debtAmountToClear > 0) {
-                    await addTransaction({
-                        student_id: sub.student_id,
-                        type: 'correction',
-                        amount: debtAmountToClear,
-                        description: `Списание долга (${lessonsToDeduct} занятий)`
-                    });
-                }
-            }
-            
-            if (lessonsToDeduct > 0) {
-                await supabase.from('student_subscriptions').update({ lessons_attended: lessonsToDeduct }).eq('id', newSubData.id);
-                showNotification(`Абонемент добавлен. ${lessonsToDeduct} долговых занятий было списано.`, 'success');
-            } else {
-                showNotification('Абонемент успешно добавлен и оплачен.', 'success');
-            }
-            
-            await fetchData(false);
-            return newSubData;
-        } catch(error: any) {
-            showNotification(error.message, 'error');
-            return null;
-        } finally {
-            setIsSaving(false);
-        }
+        // 2. Create Transaction (Payment)
+        const transaction: FinancialTransactionForCreation = {
+            student_id: sub.student_id,
+            type: 'payment',
+            amount: sub.price_paid,
+            description: 'Оплата абонемента',
+            student_subscription_id: newSub.id
+        };
+        const { error: txError } = await supabase.from('financial_transactions').insert(transaction);
+        if (txError) { console.error(txError); showNotification('Ошибка создания транзакции', 'error'); }
+
+        await fetchData(false);
+        setIsSaving(false);
+        showNotification('Абонемент добавлен и оплата зафиксирована.');
+        return newSub as StudentSubscription;
     };
-    
+
     const updateStudentSubscription = async (id: string, updates: Partial<StudentSubscription>): Promise<StudentSubscription | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('student_subscriptions').update(updates).eq('id', id).select().single();
-        if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return null; }
-        await fetchData(false);
-        setIsSaving(false);
-        return data;
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
+        await fetchData(false); setIsSaving(false); return data as StudentSubscription;
     };
 
     const refundToBalanceAndCancelSubscription = async (subscriptionId: string): Promise<void> => {
         setIsSaving(true);
-        try {
-            const sub = studentSubscriptions.find(s => s.id === subscriptionId);
-            if (!sub) return;
-            
-            const singleLessonPrice = sub.lessons_total > 0 ? sub.price_paid / sub.lessons_total : 0;
-            const remainingLessons = sub.lessons_total - sub.lessons_attended;
-            const refundAmount = Math.round(singleLessonPrice * remainingLessons);
+        const sub = studentSubscriptions.find(s => s.id === subscriptionId);
+        if (!sub) { setIsSaving(false); return; }
+        
+        const lessonsRemaining = sub.lessons_total - sub.lessons_attended;
+        const pricePerLesson = sub.lessons_total > 0 ? sub.price_paid / sub.lessons_total : 0;
+        const refundAmount = lessonsRemaining * pricePerLesson;
 
-            if (refundAmount > 0) {
-                const plan = subscriptionPlans.find(p => p.id === sub.subscription_plan_id);
-                await addTransaction({
-                    student_id: sub.student_id,
-                    type: 'refund',
-                    amount: refundAmount,
-                    description: `Возврат на баланс за ${plan?.name || ''} (${remainingLessons} занятий)`,
-                    student_subscription_id: sub.id
-                });
-            }
+        // 1. Create Refund Transaction
+        await supabase.from('financial_transactions').insert({
+            student_id: sub.student_id,
+            type: 'refund',
+            amount: refundAmount,
+            description: `Возврат на баланс (Абонемент #${sub.id.slice(0,4)})`,
+            student_subscription_id: sub.id
+        });
 
-            await supabase.from('student_subscriptions').delete().eq('id', sub.id);
-            showNotification('Абонемент аннулирован, средства возвращены на баланс.', 'success');
-        } catch(e: any) {
-            showNotification(e.message, 'error');
-        } finally {
-            await fetchData(false);
-            setIsSaving(false);
-        }
+        // 2. Cancel Subscription (delete)
+        await supabase.from('student_subscriptions').delete().eq('id', subscriptionId);
+        
+        await fetchData(false);
+        setIsSaving(false);
+        showNotification('Средства возвращены на баланс, абонемент аннулирован.');
     };
 
     const processCashRefundAndCancelSubscription = async (subscriptionId: string): Promise<void> => {
         setIsSaving(true);
-        try {
-            const sub = studentSubscriptions.find(s => s.id === subscriptionId);
-            if (!sub) return;
-    
-            const singleLessonPrice = sub.lessons_total > 0 ? sub.price_paid / sub.lessons_total : 0;
-            const remainingLessons = sub.lessons_total - sub.lessons_attended;
-            const refundAmount = Math.round(singleLessonPrice * remainingLessons);
-            
-            if (refundAmount > 0) {
-                const plan = subscriptionPlans.find(p => p.id === sub.subscription_plan_id);
-                const { error: txError } = await supabase.from('financial_transactions').insert({
-                    student_id: sub.student_id,
-                    type: 'refund',
-                    amount: refundAmount,
-                    description: `Возврат наличными за ${plan?.name || ''}`,
-                    student_subscription_id: sub.id
-                });
-                if (txError) throw txError;
-            }
-    
-            await supabase.from('student_subscriptions').delete().eq('id', sub.id);
-            showNotification('Абонемент аннулирован, возврат наличными зафиксирован.', 'success');
-        } catch (e: any) {
-            showNotification(e.message, 'error');
-        } finally {
-            await fetchData(false);
-            setIsSaving(false);
-        }
+        const sub = studentSubscriptions.find(s => s.id === subscriptionId);
+        if (!sub) { setIsSaving(false); return; }
+        
+        const lessonsRemaining = sub.lessons_total - sub.lessons_attended;
+        const pricePerLesson = sub.lessons_total > 0 ? sub.price_paid / sub.lessons_total : 0;
+        const refundAmount = lessonsRemaining * pricePerLesson;
+
+        // 1. Create Refund Transaction (cash flow out)
+        await supabase.from('financial_transactions').insert({
+            student_id: sub.student_id,
+            type: 'refund',
+            amount: refundAmount,
+            description: `Возврат средств наличными (Абонемент #${sub.id.slice(0,4)})`,
+            student_subscription_id: sub.id
+        });
+
+        await supabase.from('student_subscriptions').delete().eq('id', subscriptionId);
+
+        await fetchData(false);
+        setIsSaving(false);
+        showNotification('Средства возвращены наличными, абонемент аннулирован.');
     };
-    
+
+    const addTransaction = async (transaction: FinancialTransactionForCreation): Promise<FinancialTransaction | null> => {
+        setIsSaving(true);
+        const { data, error } = await supabase.from('financial_transactions').insert(transaction).select().single();
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
+        await fetchData(false); setIsSaving(false); return data as FinancialTransaction;
+    };
+
+    // Attendance
     const setAttendanceRecord = async (record: AttendanceForCreation, groupId: string): Promise<void> => {
         setIsSaving(true);
         try {
-            const student = students.find(s => s.id === record.student_id);
-            if (!student) throw new Error("Student not found");
-
-            const { data: existingRecords } = await supabase.from('attendance').select('*').eq('student_id', record.student_id).eq('date', record.date);
-            const existingRecord = existingRecords?.[0];
-
-            const isNewVisit = record.status === 'present' || record.status === 'absent';
-            const wasPreviouslyVisit = existingRecord && (existingRecord.status === 'present' || existingRecord.status === 'absent');
+            const existing = attendance.find(a => a.student_id === record.student_id && a.date === record.date);
             
-            if (isNewVisit && !wasPreviouslyVisit) {
-                const applicableSub = student.subscriptions?.find(s => 
-                    (s.assigned_group_id === groupId || !s.assigned_group_id) && s.lessons_attended < s.lessons_total
-                );
+            if (record.status === 'present' || record.status === 'absent') {
+                const student = students.find(s => s.id === record.student_id);
+                const activeSubs = student?.subscriptions?.filter(s => s.lessons_attended < s.lessons_total) || [];
+                
+                let subToUse = activeSubs.find(s => s.assigned_group_id === groupId);
+                if (!subToUse) subToUse = activeSubs.find(s => s.assigned_group_id === null);
 
-                if (applicableSub) {
-                    const newAttended = applicableSub.lessons_attended + 1;
-                    await supabase.from('student_subscriptions').update({ lessons_attended: newAttended }).eq('id', applicableSub.id);
-                    record.student_subscription_id = applicableSub.id;
-                } else {
-                    record.student_subscription_id = null;
-                    if (DEFAULT_LESSON_PRICE > 0) {
-                        await addTransaction({
-                            student_id: record.student_id,
-                            type: 'debit',
-                            amount: DEFAULT_LESSON_PRICE,
-                            description: `Занятие в долг ${new Date(record.date).toLocaleDateString('ru-RU')}`
-                        });
-                    }
+                if (subToUse && !existing?.student_subscription_id) {
+                     const { error: upError } = await supabase.from('student_subscriptions')
+                        .update({ lessons_attended: subToUse.lessons_attended + 1 })
+                        .eq('id', subToUse.id);
+                     if (upError) throw upError;
+                     
+                     record.student_subscription_id = subToUse.id;
+                } else if (existing?.student_subscription_id) {
+                    record.student_subscription_id = existing.student_subscription_id;
                 }
             }
-            else if (!isNewVisit && wasPreviouslyVisit) {
-                if (existingRecord.student_subscription_id) {
-                    const sub = studentSubscriptions.find(s => s.id === existingRecord.student_subscription_id);
-                    if (sub && sub.lessons_attended > 0) {
-                         await supabase.from('student_subscriptions').update({ lessons_attended: sub.lessons_attended - 1 }).eq('id', sub.id);
-                    }
-                } else { 
-                    if (DEFAULT_LESSON_PRICE > 0) {
-                        await addTransaction({
-                            student_id: record.student_id,
-                            type: 'correction',
-                            amount: DEFAULT_LESSON_PRICE,
-                            description: `Отмена списания за занятие ${new Date(record.date).toLocaleDateString('ru-RU')}`
-                        });
-                    }
-                }
-                record.student_subscription_id = null;
-            }
-            else if (existingRecord) {
-                 record.student_subscription_id = existingRecord.student_subscription_id;
-            }
 
-            const { error } = await supabase.from('attendance').upsert({ ...record, grade: record.grade === undefined ? null : record.grade }, { onConflict: 'student_id,date' }).select().single();
+            const { error } = await supabase.from('attendance').upsert(record);
             if (error) throw error;
-            
-        } catch (error: any) {
-            showNotification(`Ошибка: ${error.message}`, 'error');
+        } catch (err: any) {
+            showNotification(`Ошибка: ${err.message}`, 'error');
         } finally {
             await fetchData(false);
             setIsSaving(false);
@@ -737,176 +601,117 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         setIsSaving(true);
         try {
-            const { data: existingRecords } = await supabase.from('attendance').select('*').eq('student_id', studentId).eq('date', date);
-            const existingRecord = existingRecords?.[0];
-            
-            if (existingRecord) {
-                const wasDebtLesson = (existingRecord.status === 'present' || existingRecord.status === 'absent') && !existingRecord.student_subscription_id;
-
-                if (existingRecord.student_subscription_id) {
-                    const sub = studentSubscriptions.find(s => s.id === existingRecord.student_subscription_id);
-                    if (sub && sub.lessons_attended > 0) {
-                        await supabase.from('student_subscriptions').update({ lessons_attended: sub.lessons_attended - 1 }).eq('id', sub.id);
-                    }
-                } else if (wasDebtLesson) {
-                    if (DEFAULT_LESSON_PRICE > 0) {
-                        const debtDescription = `Занятие в долг ${new Date(date).toLocaleDateString('ru-RU')}`;
-                        const { data: debtTxData } = await supabase
-                            .from('financial_transactions')
-                            .select('id, amount')
-                            .eq('student_id', studentId)
-                            .eq('type', 'debit')
-                            .eq('description', debtDescription)
-                            .order('date', { ascending: false })
-                            .limit(1)
-                            .maybeSingle();
-
-                        if (debtTxData) {
-                            const { error: deleteTxError } = await supabase.from('financial_transactions').delete().eq('id', debtTxData.id);
-                            if (deleteTxError) throw deleteTxError;
-
-                            const { data: student } = await supabase.from('students').select('balance').eq('id', studentId).single();
-                            
-                            if (student) {
-                                const newBalance = student.balance + debtTxData.amount;
-                                await supabase.from('students').update({ balance: newBalance }).eq('id', studentId);
-                            }
-                        }
-                    }
+            const existing = attendance.find(a => a.student_id === studentId && a.date === date);
+            if (existing?.student_subscription_id) {
+                const sub = studentSubscriptions.find(s => s.id === existing.student_subscription_id);
+                if (sub) {
+                    const newCount = Math.max(0, sub.lessons_attended - 1);
+                    const { error: downError } = await supabase.from('student_subscriptions')
+                        .update({ lessons_attended: newCount })
+                        .eq('id', sub.id);
+                    if (downError) throw downError;
                 }
             }
-
-            // Always attempt deletion of the record, even if existingRecord check failed (e.g. slight mismatch or RLS quirk)
+            
             const { error } = await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
             if (error) throw error;
-            
-        } catch (error: any) {
-             showNotification(`Ошибка удаления отметки: ${error.message}`, 'error');
+
+        } catch (err: any) {
+            showNotification(`Ошибка удаления: ${err.message}`, 'error');
         } finally {
             await fetchData(false);
             setIsSaving(false);
         }
     };
-    
+
+    // Schedule
     const addScheduleEvent = async (event: ScheduleEventForCreation): Promise<ScheduleEvent | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('schedule_events').insert(event).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
-        await fetchData(false);
-        setIsSaving(false);
-        return data;
+        await fetchData(false); setIsSaving(false); return data as ScheduleEvent;
     };
-    
+
     const updateScheduleEvent = async (id: string, updates: Partial<ScheduleEvent>): Promise<ScheduleEvent | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('schedule_events').update(updates).eq('id', id).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
-        await fetchData(false);
-        setIsSaving(false);
-        return data;
+        await fetchData(false); setIsSaving(false); return data as ScheduleEvent;
     };
-    
+
     const deleteScheduleEvent = async (id: string): Promise<boolean> => {
         setIsSaving(true);
         const { error } = await supabase.from('schedule_events').delete().eq('id', id);
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return false; }
-        await fetchData(false);
-        setIsSaving(false);
-        return true;
-    };
-    
-    const addEventException = async (exception: ScheduleEventException): Promise<ScheduleEventException | null> => {
-        setIsSaving(true);
-        const { data, error } = await supabase.from('schedule_event_exceptions').upsert(exception, { onConflict: 'original_event_id,original_start_time' }).select().single();
-        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
-        await fetchData(false);
-        setIsSaving(false);
-        return data;
+        await fetchData(false); setIsSaving(false); return true;
     };
 
+    const addEventException = async (exception: ScheduleEventException): Promise<ScheduleEventException | null> => {
+        setIsSaving(true);
+        const { data, error } = await supabase.from('schedule_event_exceptions').upsert(exception).select().single();
+         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
+        await fetchData(false); setIsSaving(false); return data as ScheduleEventException;
+    };
+
+    // Expenses
     const addExpense = async (expense: ExpenseForCreation): Promise<Expense | null> => {
         setIsSaving(true);
-        const expenseToInsert = {
-            ...expense,
-            date: expense.date || new Date().toISOString(),
-        };
-        const { data, error } = await supabase.from('expenses').insert(expenseToInsert).select().single();
-        if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return null; }
-        await fetchData(false);
-        setIsSaving(false);
-        return data;
+        const { data, error } = await supabase.from('expenses').insert(expense).select().single();
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
+        await fetchData(false); setIsSaving(false); return data as Expense;
     };
 
     const updateExpense = async (id: string, updates: Partial<Omit<Expense, 'id'>>): Promise<Expense | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('expenses').update(updates).eq('id', id).select().single();
-        if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return null; }
-        await fetchData(false);
-        setIsSaving(false);
-        return data;
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
+        await fetchData(false); setIsSaving(false); return data as Expense;
     };
 
     const deleteExpense = async (id: string): Promise<boolean> => {
         setIsSaving(true);
         const { error } = await supabase.from('expenses').delete().eq('id', id);
-        if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return false; }
-        await fetchData(false);
-        setIsSaving(false);
-        return true;
+        if (error) { showNotification(error.message, 'error'); setIsSaving(false); return false; }
+        await fetchData(false); setIsSaving(false); return true;
     };
-    
+
     const clearStudentFinancialData = async (): Promise<void> => {
         setIsSaving(true);
-        try {
-            const { error: attendanceError } = await supabase.from('attendance').delete().not('student_id', 'is', null);
-            if (attendanceError) throw attendanceError;
-
-            const { error: subsError } = await supabase.from('student_subscriptions').delete().not('id', 'is', null);
-            if (subsError) throw subsError;
-
-            const { error: transactionsError } = await supabase.from('financial_transactions').delete().not('id', 'is', null);
-            if (transactionsError) throw transactionsError;
-
-            const { error: studentsError } = await supabase.from('students').update({ balance: 0 }).not('id', 'is', null);
-            if (studentsError) throw studentsError;
-
-            showNotification('Все финансовые данные учеников и история посещаемости очищены.', 'success');
-        } catch (error: any) {
-            showNotification(`Ошибка очистки: ${error.message}.`, 'error');
-        } finally {
-            await fetchData(false);
-            setIsSaving(false);
-        }
+        // Delete all transactions, subscriptions, attendance
+        await supabase.from('financial_transactions').delete().neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID); 
+        await supabase.from('student_subscriptions').delete().neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID);
+        await supabase.from('attendance').delete().neq('student_id', SYSTEM_SUBSCRIPTION_PLAN_ID);
+        // Reset student balances
+        await supabase.from('students').update({ balance: 0 }).neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID);
+        
+        await fetchData(false);
+        setIsSaving(false);
+        showNotification('Финансовые данные очищены.', 'success');
     };
 
     const value: IAppContext = {
         userProfile, allProfiles,
         students, groups, subscriptionPlans, attendance, transactions, scheduleEvents, eventExceptions, allVisibleEvents, expenses,
-        notifications, isLoading, isSaving, showNotification, addStudent, addStudents, updateStudent, deleteStudents,
-        addGroup, updateGroup, deleteGroup, addSubscriptionPlan, updateSubscriptionPlan, deleteSubscriptionPlan,
+        notifications, isLoading, isSaving,
+        showNotification,
+        addStudent, addStudents, updateStudent, deleteStudents,
+        addGroup, updateGroup, deleteGroup,
+        addSubscriptionPlan, updateSubscriptionPlan, deleteSubscriptionPlan,
         addStudentSubscription, updateStudentSubscription, refundToBalanceAndCancelSubscription, processCashRefundAndCancelSubscription,
-        addTransaction, setAttendanceRecord, deleteAttendanceRecord, addScheduleEvent, updateScheduleEvent,
-        deleteScheduleEvent, addEventException, addExpense, updateExpense, deleteExpense, clearStudentFinancialData,
+        addTransaction,
+        setAttendanceRecord, deleteAttendanceRecord,
+        addScheduleEvent, updateScheduleEvent, deleteScheduleEvent, addEventException,
+        addExpense, updateExpense, deleteExpense,
+        clearStudentFinancialData,
         updateUserProfile
     };
 
-    return (
-        <AppContext.Provider value={value}>
-            {children}
-            <div className="fixed top-4 right-4 z-50 space-y-2">
-                {notifications.map(n => (
-                    <div key={n.id} className={`px-4 py-2 rounded-md shadow-lg text-white ${n.type === 'success' ? 'bg-green-500' : 'bg-red-500'} whitespace-pre-wrap`}>
-                        {n.message}
-                    </div>
-                ))}
-            </div>
-        </AppContext.Provider>
-    );
+    return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-export const useAppContext = (): IAppContext => {
+export const useAppContext = () => {
     const context = useContext(AppContext);
-    if (context === null) {
+    if (!context) {
         throw new Error('useAppContext must be used within an AppProvider');
     }
     return context;
