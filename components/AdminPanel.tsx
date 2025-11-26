@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAppContext } from '../AppContext';
 import { UserProfile, UserPermissions } from '../types';
