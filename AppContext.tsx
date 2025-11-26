@@ -15,7 +15,7 @@ import {
     UserPermissions
 } from './types';
 import { notificationService } from './services/notificationService';
-import { SYSTEM_SUBSCRIPTION_PLAN_ID, DEFAULT_LESSON_PRICE } from './constants';
+import { SYSTEM_SUBSCRIPTION_PLAN_ID } from './constants';
 
 const AppContext = createContext<IAppContext | null>(null);
 
@@ -312,7 +312,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             if (event.is_recurring) {
                 const duration = endDate.getTime() - startDate.getTime();
-                let nextDate = new Date(startDate);
+                const nextDate = new Date(startDate);
     
                 for (let i = 1; i <= 52; i++) { // Generate for 1 year
                     nextDate.setDate(nextDate.getDate() + 7);
