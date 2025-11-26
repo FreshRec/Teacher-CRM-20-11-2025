@@ -119,7 +119,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 return;
             }
             
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitize = (data: any[] | null | undefined) => Array.isArray(data) ? data : [];
 
             const sanitizedGroups = sanitize(groupsRaw).filter(g => g && g.id && g.name).map(g => ({...g}));
@@ -193,7 +192,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             setStudents(enrichedStudents);
     
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             showNotification(`Критическая ошибка загрузки данных: ${error.message}`, 'error');
         } finally {
@@ -227,7 +225,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             if (event.is_recurring) {
                 const duration = endDate.getTime() - startDate.getTime();
-                const nextDate = new Date(startDate);
+                let nextDate = new Date(startDate);
     
                 for (let i = 1; i <= 52; i++) { // Generate for 1 year
                     nextDate.setDate(nextDate.getDate() + 7);
@@ -491,10 +489,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (!subToUse) subToUse = activeSubs.find(s => s.assigned_group_id === null);
 
             if (subToUse && !existing?.student_subscription_id) {
-                 const { data: currentSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', subToUse.id).single();
-                 if (currentSub) {
-                     await supabase.from('student_subscriptions').update({ lessons_attended: currentSub.lessons_attended + 1 }).eq('id', subToUse.id);
-                 }
+                 await supabase.from('student_subscriptions').increment('lessons_attended', 1).eq('id', subToUse.id);
                  record.student_subscription_id = subToUse.id;
             } else if (existing?.student_subscription_id) {
                 record.student_subscription_id = existing.student_subscription_id;
@@ -510,14 +505,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         const existing = attendance.find(a => a.student_id === studentId && a.date === date);
         if (existing?.student_subscription_id) {
-            const { data: currentSub } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', existing.student_subscription_id).single();
-            if (currentSub) {
-                await supabase.from('student_subscriptions').update({ lessons_attended: Math.max(0, currentSub.lessons_attended - 1) }).eq('id', existing.student_subscription_id);
-            }
+            await supabase.from('student_subscriptions').decrement('lessons_attended', 1).eq('id', existing.student_subscription_id);
         }
         
-        // Fix: Use .eq() instead of .match() for v2 compatibility
-        await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
+        await supabase.from('attendance').delete().match({ student_id: studentId, date: date });
         await fetchData(false);
     };
 
