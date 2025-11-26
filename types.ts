@@ -1,4 +1,24 @@
-export type View = 'dashboard' | 'students' | 'journal' | 'groups' | 'subscriptions' | 'schedule' | 'finance' | 'archive' | 'studentFinance';
+
+export type View = 'dashboard' | 'students' | 'journal' | 'groups' | 'subscriptions' | 'schedule' | 'finance' | 'archive' | 'studentFinance' | 'admin';
+
+export interface UserPermissions {
+    canViewDashboard: boolean;
+    canViewStudents: boolean;
+    canViewJournal: boolean;
+    canViewGroups: boolean;
+    canViewSubscriptions: boolean;
+    canViewSchedule: boolean;
+    canViewFinance: boolean;
+    canViewArchive: boolean;
+    canManageUsers: boolean;
+}
+
+export interface UserProfile {
+    id: string;
+    email: string;
+    role: 'admin' | 'teacher';
+    permissions: UserPermissions;
+}
 
 export interface Student {
   id: string;
@@ -130,6 +150,7 @@ export interface Lesson {
 }
 
 export interface IAppContext {
+    userProfile: UserProfile | null;
     students: Student[];
     groups: Group[];
     subscriptionPlans: SubscriptionPlan[];
@@ -139,6 +160,7 @@ export interface IAppContext {
     eventExceptions: ScheduleEventException[];
     allVisibleEvents: DisplayEvent[];
     expenses: Expense[];
+    allProfiles: UserProfile[]; // For admin view
     notifications: { id: number; message: string; type: 'success' | 'error' }[];
     isLoading: boolean;
     isSaving: boolean;
@@ -168,4 +190,5 @@ export interface IAppContext {
     updateExpense: (id: string, updates: Partial<Omit<Expense, 'id'>>) => Promise<Expense | null>;
     deleteExpense: (id: string) => Promise<boolean>;
     clearStudentFinancialData: () => Promise<void>;
+    updateUserProfile: (id: string, updates: Partial<UserProfile>) => Promise<void>;
 }
