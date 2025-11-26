@@ -371,6 +371,12 @@ const App: React.FC = () => {
     const [isRecovery, setIsRecovery] = useState(false);
 
     useEffect(() => {
+        // Check for recovery hash immediately
+        const hash = window.location.hash;
+        if (hash && hash.includes('type=recovery')) {
+            setIsRecovery(true);
+        }
+
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
             setLoading(false);
