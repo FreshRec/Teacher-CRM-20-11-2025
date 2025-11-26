@@ -105,7 +105,7 @@ export default function Auth() {
       setMessage(null);
       try {
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
-              redirectTo: window.location.href,
+              redirectTo: window.location.origin,
           });
           if (error) throw error;
           setMessage({ text: 'Ссылка для сброса пароля отправлена на ваш Email', type: 'success' });
