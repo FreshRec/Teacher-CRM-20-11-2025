@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { View } from './types';
-import { DashboardIcon, StudentsIcon, JournalIcon, SubscriptionsIcon, ScheduleIcon, FinanceIcon, ArchiveIcon, MenuIcon, GroupsIcon } from './components/icons';
+import { DashboardIcon, StudentsIcon, JournalIcon, SubscriptionsIcon, ScheduleIcon, FinanceIcon, ArchiveIcon, MenuIcon, GroupsIcon, LogoutIcon, AdminIcon } from './components/icons';
 import Dashboard from './components/Dashboard';
 import Students from './components/Students';
 import Journal from './components/Journal';
@@ -9,12 +10,17 @@ import Schedule from './components/Schedule';
 import Finance from './components/Finance';
 import Archive from './components/Archive';
 import Groups from './components/Groups';
+import AdminPanel from './components/AdminPanel';
+import Auth from './components/Auth';
+import { supabase } from './services/supabaseClient';
+import { Session } from '@supabase/supabase-js';
+
 // Fix: Use named import for StudentFinanceHistory
 import { StudentFinanceHistory } from './components/StudentFinanceHistory';
-import { useAppContext } from './AppContext';
+import { useAppContext, AppProvider } from './AppContext';
 
-const App: React.FC = () => {
-    const { students, groups } = useAppContext();
+const AuthenticatedApp: React.FC = () => {
+    const { students, groups, userProfile } = useAppContext();
     const [view, setView] = useState<View>('dashboard');
     const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
     const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -96,6 +102,19 @@ const App: React.FC = () => {
 
 
     const renderView = () => {
+        // Permission check
+        const perms = userProfile?.permissions;
+        if (!perms) return <div>Загрузка прав доступа...</div>;
+
+        if (view === 'students' && !perms.canViewStudents) return <div className="p-4 text-red-600">Нет доступа</div>;
+        if (view === 'journal' && !perms.canViewJournal) return <div className="p-4 text-red-600">Нет доступа</div>;
+        if (view === 'groups' && !perms.canViewGroups) return <div className="p-4 text-red-600">Нет доступа</div>;
+        if (view === 'subscriptions' && !perms.canViewSubscriptions) return <div className="p-4 text-red-600">Нет доступа</div>;
+        if (view === 'schedule' && !perms.canViewSchedule) return <div className="p-4 text-red-600">Нет доступа</div>;
+        if (view === 'finance' && !perms.canViewFinance) return <div className="p-4 text-red-600">Нет доступа</div>;
+        if (view === 'archive' && !perms.canViewArchive) return <div className="p-4 text-red-600">Нет доступа</div>;
+        if (view === 'admin' && !perms.canManageUsers) return <div className="p-4 text-red-600">Нет доступа</div>;
+
         switch (view) {
             case 'dashboard':
                 return <Dashboard navigateTo={navigateTo} />;
@@ -125,6 +144,8 @@ const App: React.FC = () => {
                 return activeStudentId ? <StudentFinanceHistory studentId={activeStudentId} navigateTo={navigateTo} /> : <Finance navigateTo={navigateTo} />;
             case 'archive':
                 return <Archive />;
+            case 'admin':
+                return <AdminPanel />;
             default:
                 return <Journal 
                             currentDate={journalDate} 
@@ -138,6 +159,7 @@ const App: React.FC = () => {
         const titleMap: Record<string, string> = {
             dashboard: 'Обзор',
             archive: 'Архив',
+            admin: 'Администрирование'
         };
 
         switch (view) {
@@ -280,6 +302,10 @@ const App: React.FC = () => {
         </button>
     );
 
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+    };
+
     return (
         <div className="relative md:flex min-h-screen bg-gray-100 font-sans">
             {/* Overlay for mobile */}
@@ -290,20 +316,36 @@ const App: React.FC = () => {
                 ></div>
             )}
 
-            <aside className={`fixed top-0 left-0 h-full w-64 bg-white shadow-md flex-shrink-0 transform transition-transform z-30 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
+            <aside className={`fixed top-0 left-0 h-full w-64 bg-white shadow-md flex-shrink-0 transform transition-transform z-30 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 flex flex-col`}>
                 <div className="p-6">
                     <h1 className="text-2xl md:text-3xl font-bold text-indigo-600">Teacher's CRM</h1>
+                    {userProfile && (
+                        <div className="text-xs text-gray-500 mt-2">
+                            {userProfile.email} <br/>
+                            <span className="font-semibold text-indigo-500 capitalize">{userProfile.role === 'admin' ? 'Администратор' : 'Учитель'}</span>
+                        </div>
+                    )}
                 </div>
-                <nav className="mt-6 px-4 space-y-2">
-                    <NavItem viewName="dashboard" icon={<DashboardIcon />} label="Обзор" />
-                    <NavItem viewName="journal" icon={<JournalIcon />} label="Журнал" />
-                    <NavItem viewName="schedule" icon={<ScheduleIcon />} label="Расписание" />
-                    <NavItem viewName="groups" icon={<GroupsIcon />} label="Группы" />
-                    <NavItem viewName="students" icon={<StudentsIcon />} label="Ученики" />
-                    <NavItem viewName="subscriptions" icon={<SubscriptionsIcon />} label="Абонементы" />
-                    <NavItem viewName="finance" icon={<FinanceIcon />} label="Финансы" />
-                    <NavItem viewName="archive" icon={<ArchiveIcon />} label="Архив" />
+                <nav className="mt-6 px-4 space-y-2 flex-grow">
+                    {userProfile?.permissions.canViewDashboard && <NavItem viewName="dashboard" icon={<DashboardIcon />} label="Обзор" />}
+                    {userProfile?.permissions.canViewJournal && <NavItem viewName="journal" icon={<JournalIcon />} label="Журнал" />}
+                    {userProfile?.permissions.canViewSchedule && <NavItem viewName="schedule" icon={<ScheduleIcon />} label="Расписание" />}
+                    {userProfile?.permissions.canViewGroups && <NavItem viewName="groups" icon={<GroupsIcon />} label="Группы" />}
+                    {userProfile?.permissions.canViewStudents && <NavItem viewName="students" icon={<StudentsIcon />} label="Ученики" />}
+                    {userProfile?.permissions.canViewSubscriptions && <NavItem viewName="subscriptions" icon={<SubscriptionsIcon />} label="Абонементы" />}
+                    {userProfile?.permissions.canViewFinance && <NavItem viewName="finance" icon={<FinanceIcon />} label="Финансы" />}
+                    {userProfile?.permissions.canViewArchive && <NavItem viewName="archive" icon={<ArchiveIcon />} label="Архив" />}
+                    {userProfile?.permissions.canManageUsers && <NavItem viewName="admin" icon={<AdminIcon />} label="Администрирование" />}
                 </nav>
+                <div className="p-4 border-t">
+                    <button 
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-3 text-sm md:text-lg font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                        <span className="mr-3"><LogoutIcon /></span>
+                        Выйти
+                    </button>
+                </div>
             </aside>
 
             <main className="flex-1 overflow-y-auto p-4 md:p-8">
@@ -321,6 +363,47 @@ const App: React.FC = () => {
                 {renderView()}
             </main>
         </div>
+    );
+};
+
+const App: React.FC = () => {
+    const [session, setSession] = useState<Session | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            setLoading(false);
+        });
+
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center min-h-screen bg-gray-100">
+                 <svg className="animate-spin h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+            </div>
+        )
+    }
+
+    if (!session) {
+        return <Auth />;
+    }
+
+    return (
+        <AppProvider>
+            <AuthenticatedApp />
+        </AppProvider>
     );
 };
 
