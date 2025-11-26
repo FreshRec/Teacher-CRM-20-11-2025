@@ -1,3 +1,4 @@
+
 /* eslint-disable react-refresh/only-export-components */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
@@ -9,7 +10,9 @@ import {
     FinancialTransactionForCreation, AttendanceForCreation, ScheduleEventForCreation,
     ExpenseForCreation,
     IAppContext,
-    DisplayEvent
+    DisplayEvent,
+    UserProfile,
+    UserPermissions
 } from './types';
 import { notificationService } from './services/notificationService';
 import { DEFAULT_LESSON_PRICE } from './constants';
@@ -25,7 +28,34 @@ const getOccurrenceKey = (date: Date): string => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+const defaultPermissions: UserPermissions = {
+    canViewDashboard: true,
+    canViewStudents: true,
+    canViewJournal: true,
+    canViewGroups: true,
+    canViewSubscriptions: true,
+    canViewSchedule: true,
+    canViewFinance: false,
+    canViewArchive: false,
+    canManageUsers: false,
+};
+
+const adminPermissions: UserPermissions = {
+    canViewDashboard: true,
+    canViewStudents: true,
+    canViewJournal: true,
+    canViewGroups: true,
+    canViewSubscriptions: true,
+    canViewSchedule: true,
+    canViewFinance: true,
+    canViewArchive: true,
+    canManageUsers: true,
+};
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [allProfiles, setAllProfiles] = useState<UserProfile[]>([]);
+
     const [students, setStudents] = useState<Student[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
     const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
@@ -91,9 +121,64 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, [showNotification]);
 
+    const fetchUserProfile = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        // Try to get profile
+        let { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+        if (!profile) {
+            // Profile doesn't exist. Check if this is the FIRST user ever in profiles
+            const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+            const isFirstUser = count === 0;
+
+            const newProfile: UserProfile = {
+                id: session.user.id,
+                email: session.user.email || '',
+                role: isFirstUser ? 'admin' : 'teacher',
+                permissions: isFirstUser ? adminPermissions : defaultPermissions
+            };
+
+            const { data: createdProfile, error: createError } = await supabase.from('profiles').insert(newProfile).select().single();
+            if (createError) {
+                console.error("Error creating profile:", createError);
+            } else {
+                profile = createdProfile;
+            }
+        }
+
+        if (profile) {
+            setUserProfile(profile);
+            // If admin, fetch all profiles
+            if (profile.role === 'admin') {
+                const { data: all } = await supabase.from('profiles').select('*').order('email');
+                if (all) setAllProfiles(all);
+            }
+        }
+    };
+
+    const updateUserProfile = async (id: string, updates: Partial<UserProfile>) => {
+        setIsSaving(true);
+        const { error } = await supabase.from('profiles').update(updates).eq('id', id);
+        if (error) {
+            showNotification(`Ошибка обновления профиля: ${error.message}`, 'error');
+        } else {
+            showNotification('Профиль обновлен', 'success');
+            await fetchUserProfile(); // Refresh
+        }
+        setIsSaving(false);
+    }
+
     const fetchData = useCallback(async (isInitialLoad = true) => {
         if (isInitialLoad) setIsLoading(true);
         try {
+            await fetchUserProfile();
+
             const results = await Promise.all([
                 supabase.from('students').select('*').order('name'),
                 supabase.from('groups').select('*').order('name'),
@@ -795,12 +880,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const value: IAppContext = {
+        userProfile, allProfiles,
         students, groups, subscriptionPlans, attendance, transactions, scheduleEvents, eventExceptions, allVisibleEvents, expenses,
         notifications, isLoading, isSaving, showNotification, addStudent, addStudents, updateStudent, deleteStudents,
         addGroup, updateGroup, deleteGroup, addSubscriptionPlan, updateSubscriptionPlan, deleteSubscriptionPlan,
         addStudentSubscription, updateStudentSubscription, refundToBalanceAndCancelSubscription, processCashRefundAndCancelSubscription,
         addTransaction, setAttendanceRecord, deleteAttendanceRecord, addScheduleEvent, updateScheduleEvent,
         deleteScheduleEvent, addEventException, addExpense, updateExpense, deleteExpense, clearStudentFinancialData,
+        updateUserProfile
     };
 
     return (
