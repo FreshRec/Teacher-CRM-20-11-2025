@@ -6,13 +6,13 @@ import {
     Student, Group, SubscriptionPlan, Attendance, FinancialTransaction, StudentSubscription, ScheduleEvent, ScheduleEventException,
     Expense,
     StudentForCreation, GroupForCreation, SubscriptionPlanForCreation, StudentSubscriptionForCreation, 
-    FinancialTransactionForCreation, AttendanceForCreation, ScheduleEventForCreation, ScheduleEventExceptionForCreation,
+    FinancialTransactionForCreation, AttendanceForCreation, ScheduleEventForCreation,
     ExpenseForCreation,
     IAppContext,
     DisplayEvent
 } from './types';
 import { notificationService } from './services/notificationService';
-import { SYSTEM_SUBSCRIPTION_PLAN_ID, DEFAULT_LESSON_PRICE } from './constants';
+import { DEFAULT_LESSON_PRICE } from './constants';
 
 const AppContext = createContext<IAppContext | null>(null);
 
@@ -227,7 +227,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             if (event.is_recurring) {
                 const duration = endDate.getTime() - startDate.getTime();
-                let nextDate = new Date(startDate);
+                const nextDate = new Date(startDate);
     
                 for (let i = 1; i <= 52; i++) { // Generate for 1 year
                     nextDate.setDate(nextDate.getDate() + 7);
@@ -654,42 +654,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         try {
             const { data: existingRecords } = await supabase.from('attendance').select('*').eq('student_id', studentId).eq('date', date);
             const existingRecord = existingRecords?.[0];
-            if (!existingRecord) return;
-        
-            const wasDebtLesson = (existingRecord.status === 'present' || existingRecord.status === 'absent') && !existingRecord.student_subscription_id;
+            
+            if (existingRecord) {
+                const wasDebtLesson = (existingRecord.status === 'present' || existingRecord.status === 'absent') && !existingRecord.student_subscription_id;
 
-            if (existingRecord.student_subscription_id) {
-                const sub = studentSubscriptions.find(s => s.id === existingRecord.student_subscription_id);
-                if (sub && sub.lessons_attended > 0) {
-                     await supabase.from('student_subscriptions').update({ lessons_attended: sub.lessons_attended - 1 }).eq('id', sub.id);
-                }
-            } else if (wasDebtLesson) {
-                if (DEFAULT_LESSON_PRICE > 0) {
-                    const debtDescription = `Занятие в долг ${new Date(date).toLocaleDateString('ru-RU')}`;
-                    const { data: debtTxData } = await supabase
-                        .from('financial_transactions')
-                        .select('id, amount')
-                        .eq('student_id', studentId)
-                        .eq('type', 'debit')
-                        .eq('description', debtDescription)
-                        .order('date', { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
+                if (existingRecord.student_subscription_id) {
+                    const sub = studentSubscriptions.find(s => s.id === existingRecord.student_subscription_id);
+                    if (sub && sub.lessons_attended > 0) {
+                        await supabase.from('student_subscriptions').update({ lessons_attended: sub.lessons_attended - 1 }).eq('id', sub.id);
+                    }
+                } else if (wasDebtLesson) {
+                    if (DEFAULT_LESSON_PRICE > 0) {
+                        const debtDescription = `Занятие в долг ${new Date(date).toLocaleDateString('ru-RU')}`;
+                        const { data: debtTxData } = await supabase
+                            .from('financial_transactions')
+                            .select('id, amount')
+                            .eq('student_id', studentId)
+                            .eq('type', 'debit')
+                            .eq('description', debtDescription)
+                            .order('date', { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
 
-                    if (debtTxData) {
-                        const { error: deleteTxError } = await supabase.from('financial_transactions').delete().eq('id', debtTxData.id);
-                        if (deleteTxError) throw deleteTxError;
+                        if (debtTxData) {
+                            const { error: deleteTxError } = await supabase.from('financial_transactions').delete().eq('id', debtTxData.id);
+                            if (deleteTxError) throw deleteTxError;
 
-                        const { data: student } = await supabase.from('students').select('balance').eq('id', studentId).single();
-                        
-                        if (student) {
-                            const newBalance = student.balance + debtTxData.amount;
-                            await supabase.from('students').update({ balance: newBalance }).eq('id', studentId);
+                            const { data: student } = await supabase.from('students').select('balance').eq('id', studentId).single();
+                            
+                            if (student) {
+                                const newBalance = student.balance + debtTxData.amount;
+                                await supabase.from('students').update({ balance: newBalance }).eq('id', studentId);
+                            }
                         }
                     }
                 }
             }
 
+            // Always attempt deletion of the record, even if existingRecord check failed (e.g. slight mismatch or RLS quirk)
             const { error } = await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
             if (error) throw error;
             
