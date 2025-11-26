@@ -1,4 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { supabase } from './services/supabaseClient';
 import { 
@@ -120,11 +121,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 return;
             }
             
-            const sanitize = (data: unknown) => Array.isArray(data) ? data : [];
+            const sanitize = (data: any[] | null | undefined) => Array.isArray(data) ? data : [];
 
-            const sanitizedGroups = sanitize(groupsRaw).filter((g: any) => g && g.id && g.name).map((g: any) => ({...g}));
+            const sanitizedGroups = sanitize(groupsRaw).filter(g => g && g.id && g.name).map(g => ({...g}));
             
-            const sanitizedPlans = sanitize(plansRaw).filter((p: any) => p && p.id).map((p: any) => ({
+            const sanitizedPlans = sanitize(plansRaw).filter(p => p && p.id).map(p => ({
                 ...p,
                 name: p.name || 'Без имени',
                 price: typeof p.price === 'number' ? p.price : 0,
@@ -133,39 +134,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }));
 
             const sanitizedStudentSubs = sanitize(studentSubsRaw)
-                .filter((s: any) => s && s.id && s.student_id && s.subscription_plan_id && s.purchase_date && typeof s.price_paid === 'number' && typeof s.lessons_total === 'number')
-                .map((s: any) => ({
+                .filter(s => s && s.id && s.student_id && s.subscription_plan_id && s.purchase_date && typeof s.price_paid === 'number' && typeof s.lessons_total === 'number')
+                .map(s => ({
                     ...s,
                     lessons_attended: typeof s.lessons_attended === 'number' ? s.lessons_attended : 0,
                     assigned_group_id: s.assigned_group_id || null,
                 }));
 
-            const sanitizedAttendance = sanitize(attendanceRaw).filter((a: any) => a && a.student_id && a.date && a.status).map((a: any) => ({...a}));
+            const sanitizedAttendance = sanitize(attendanceRaw).filter(a => a && a.student_id && a.date && a.status).map(a => ({...a}));
             
             const sanitizedTransactions = sanitize(transactionsRaw)
-                .filter((t: any) => t && t.id && t.student_id && t.date && t.type && typeof t.amount === 'number')
-                .map((t: any) => ({
+                .filter(t => t && t.id && t.student_id && t.date && t.type && typeof t.amount === 'number')
+                .map(t => ({
                     ...t,
                     description: t.description || '',
                 }));
             
             const sanitizedEvents = sanitize(eventsRaw)
-                .filter((e: any) => e && e.id && e.start && e.end && e.title && !isNaN(new Date(e.start).getTime()))
-                .map((e: any) => ({
+                .filter(e => e && e.id && e.start && e.end && e.title && !isNaN(new Date(e.start).getTime()))
+                .map(e => ({
                     ...e,
                     is_recurring: !!e.is_recurring,
                 }));
 
-            const sanitizedExceptions = sanitize(exceptionsRaw).filter((e: any) => e && e.original_event_id && e.original_start_time).map((e: any) => ({...e}));
+            const sanitizedExceptions = sanitize(exceptionsRaw).filter(e => e && e.original_event_id && e.original_start_time).map(e => ({...e}));
 
             const sanitizedExpenses = sanitize(expensesRaw)
-                .filter((e: any) => e && e.id && e.date && typeof e.amount === 'number')
-                .map((e: any) => ({
+                .filter(e => e && e.id && e.date && typeof e.amount === 'number')
+                .map(e => ({
                     ...e,
                     description: e.description || 'Без описания',
                 }));
 
-            const sanitizedStudents = sanitize(studentsRaw).filter((s: any) => s && s.id).map((s: any) => ({
+            const sanitizedStudents = sanitize(studentsRaw).filter(s => s && s.id).map(s => ({
                 ...s,
                 name: s.name || 'Имя не указано',
                 balance: typeof s.balance === 'number' ? s.balance : 0,
@@ -185,10 +186,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setEventExceptions(sanitizedExceptions);
             setExpenses(sanitizedExpenses);
     
-            const enrichedStudents = sanitizedStudents.map((s: any) => ({
+            const enrichedStudents = sanitizedStudents.map(s => ({
                 ...s,
-                subscriptions: sanitizedStudentSubs.filter((sub: any) => sub.student_id === s.id),
-                transactions: sanitizedTransactions.filter((tx: any) => tx.student_id === s.id),
+                subscriptions: sanitizedStudentSubs.filter(sub => sub.student_id === s.id),
+                transactions: sanitizedTransactions.filter(tx => tx.student_id === s.id),
             }));
     
             setStudents(enrichedStudents);
