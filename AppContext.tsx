@@ -194,9 +194,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             setStudents(enrichedStudents);
     
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : 'Unknown error';
-            showNotification(`Критическая ошибка загрузки данных: ${message}`, 'error');
+        } catch (error: any) {
+            showNotification(`Критическая ошибка загрузки данных: ${error.message}`, 'error');
         } finally {
              if (isInitialLoad) setIsLoading(false);
         }
@@ -492,7 +491,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (!subToUse) subToUse = activeSubs.find(s => s.assigned_group_id === null);
 
             if (subToUse && !existing?.student_subscription_id) {
-                 await supabase.from('student_subscriptions').increment('lessons_attended', 1).eq('id', subToUse.id);
+                 // Fetch current value
+                 const { data: subData } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', subToUse.id).single();
+                 if (subData) {
+                    await supabase.from('student_subscriptions').update({ lessons_attended: (subData.lessons_attended || 0) + 1 }).eq('id', subToUse.id);
+                 }
                  record.student_subscription_id = subToUse.id;
             } else if (existing?.student_subscription_id) {
                 record.student_subscription_id = existing.student_subscription_id;
@@ -508,7 +511,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         const existing = attendance.find(a => a.student_id === studentId && a.date === date);
         if (existing?.student_subscription_id) {
-            await supabase.from('student_subscriptions').decrement('lessons_attended', 1).eq('id', existing.student_subscription_id);
+            const { data: subData } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', existing.student_subscription_id).single();
+            if (subData) {
+                 await supabase.from('student_subscriptions').update({ lessons_attended: Math.max(0, (subData.lessons_attended || 0) - 1) }).eq('id', existing.student_subscription_id);
+            }
         }
         
         await supabase.from('attendance').delete().match({ student_id: studentId, date: date });
