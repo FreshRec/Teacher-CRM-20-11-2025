@@ -121,11 +121,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 return;
             }
             
-            const sanitize = (data: any[] | null | undefined) => Array.isArray(data) ? data : [];
+            const sanitize = (data: unknown) => Array.isArray(data) ? data : [];
 
-            const sanitizedGroups = sanitize(groupsRaw).filter(g => g && g.id && g.name).map(g => ({...g}));
+            const sanitizedGroups = sanitize(groupsRaw).filter((g: any) => g && g.id && g.name).map((g: any) => ({...g}));
             
-            const sanitizedPlans = sanitize(plansRaw).filter(p => p && p.id).map(p => ({
+            const sanitizedPlans = sanitize(plansRaw).filter((p: any) => p && p.id).map((p: any) => ({
                 ...p,
                 name: p.name || 'Без имени',
                 price: typeof p.price === 'number' ? p.price : 0,
@@ -134,39 +134,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }));
 
             const sanitizedStudentSubs = sanitize(studentSubsRaw)
-                .filter(s => s && s.id && s.student_id && s.subscription_plan_id && s.purchase_date && typeof s.price_paid === 'number' && typeof s.lessons_total === 'number')
-                .map(s => ({
+                .filter((s: any) => s && s.id && s.student_id && s.subscription_plan_id && s.purchase_date && typeof s.price_paid === 'number' && typeof s.lessons_total === 'number')
+                .map((s: any) => ({
                     ...s,
                     lessons_attended: typeof s.lessons_attended === 'number' ? s.lessons_attended : 0,
                     assigned_group_id: s.assigned_group_id || null,
                 }));
 
-            const sanitizedAttendance = sanitize(attendanceRaw).filter(a => a && a.student_id && a.date && a.status).map(a => ({...a}));
+            const sanitizedAttendance = sanitize(attendanceRaw).filter((a: any) => a && a.student_id && a.date && a.status).map((a: any) => ({...a}));
             
             const sanitizedTransactions = sanitize(transactionsRaw)
-                .filter(t => t && t.id && t.student_id && t.date && t.type && typeof t.amount === 'number')
-                .map(t => ({
+                .filter((t: any) => t && t.id && t.student_id && t.date && t.type && typeof t.amount === 'number')
+                .map((t: any) => ({
                     ...t,
                     description: t.description || '',
                 }));
             
             const sanitizedEvents = sanitize(eventsRaw)
-                .filter(e => e && e.id && e.start && e.end && e.title && !isNaN(new Date(e.start).getTime()))
-                .map(e => ({
+                .filter((e: any) => e && e.id && e.start && e.end && e.title && !isNaN(new Date(e.start).getTime()))
+                .map((e: any) => ({
                     ...e,
                     is_recurring: !!e.is_recurring,
                 }));
 
-            const sanitizedExceptions = sanitize(exceptionsRaw).filter(e => e && e.original_event_id && e.original_start_time).map(e => ({...e}));
+            const sanitizedExceptions = sanitize(exceptionsRaw).filter((e: any) => e && e.original_event_id && e.original_start_time).map((e: any) => ({...e}));
 
             const sanitizedExpenses = sanitize(expensesRaw)
-                .filter(e => e && e.id && e.date && typeof e.amount === 'number')
-                .map(e => ({
+                .filter((e: any) => e && e.id && e.date && typeof e.amount === 'number')
+                .map((e: any) => ({
                     ...e,
                     description: e.description || 'Без описания',
                 }));
 
-            const sanitizedStudents = sanitize(studentsRaw).filter(s => s && s.id).map(s => ({
+            const sanitizedStudents = sanitize(studentsRaw).filter((s: any) => s && s.id).map((s: any) => ({
                 ...s,
                 name: s.name || 'Имя не указано',
                 balance: typeof s.balance === 'number' ? s.balance : 0,
@@ -186,16 +186,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setEventExceptions(sanitizedExceptions);
             setExpenses(sanitizedExpenses);
     
-            const enrichedStudents = sanitizedStudents.map(s => ({
+            const enrichedStudents = sanitizedStudents.map((s: Student) => ({
                 ...s,
-                subscriptions: sanitizedStudentSubs.filter(sub => sub.student_id === s.id),
-                transactions: sanitizedTransactions.filter(tx => tx.student_id === s.id),
+                subscriptions: sanitizedStudentSubs.filter((sub: StudentSubscription) => sub.student_id === s.id),
+                transactions: sanitizedTransactions.filter((tx: FinancialTransaction) => tx.student_id === s.id),
             }));
     
             setStudents(enrichedStudents);
     
-        } catch (error: any) {
-            showNotification(`Критическая ошибка загрузки данных: ${error.message}`, 'error');
+        } catch (error: unknown) {
+            let errorMessage = 'Unknown error';
+            if (error instanceof Error) errorMessage = error.message;
+            showNotification(`Критическая ошибка загрузки данных: ${errorMessage}`, 'error');
         } finally {
              if (isInitialLoad) setIsLoading(false);
         }
@@ -482,6 +484,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const setAttendanceRecord = async (record: AttendanceForCreation, groupId: string): Promise<void> => {
         const existing = attendance.find(a => a.student_id === record.student_id && a.date === record.date);
         
+        // Prepare the record to be upserted. We might modify student_subscription_id.
+        const recordToUpsert = { ...record };
+
         if (record.status === 'present' || record.status === 'absent') {
             // Simplified usage of subscription logic
             const student = students.find(s => s.id === record.student_id);
@@ -491,18 +496,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (!subToUse) subToUse = activeSubs.find(s => s.assigned_group_id === null);
 
             if (subToUse && !existing?.student_subscription_id) {
-                 const { data: subData } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', subToUse.id).single();
+                 const { data: subData } = await supabase
+                    .from('student_subscriptions')
+                    .select('lessons_attended')
+                    .eq('id', subToUse.id)
+                    .single();
+                 
                  if (subData) {
-                    await supabase.from('student_subscriptions').update({ lessons_attended: (subData.lessons_attended || 0) + 1 }).eq('id', subToUse.id);
+                    await supabase
+                        .from('student_subscriptions')
+                        .update({ lessons_attended: (subData.lessons_attended || 0) + 1 })
+                        .eq('id', subToUse.id);
                  }
-                 record.student_subscription_id = subToUse.id;
+                 recordToUpsert.student_subscription_id = subToUse.id;
             } else if (existing?.student_subscription_id) {
-                record.student_subscription_id = existing.student_subscription_id;
+                recordToUpsert.student_subscription_id = existing.student_subscription_id;
             }
         }
 
-        const { error } = await supabase.from('attendance').upsert(record);
-        if (error) console.error(error);
+        const { error } = await supabase.from('attendance').upsert(recordToUpsert);
+        if (error) console.error("Error upserting attendance:", error);
         
         await fetchData(false);
     };
@@ -510,13 +523,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         const existing = attendance.find(a => a.student_id === studentId && a.date === date);
         if (existing?.student_subscription_id) {
-             const { data: subData } = await supabase.from('student_subscriptions').select('lessons_attended').eq('id', existing.student_subscription_id).single();
+             const { data: subData } = await supabase
+                .from('student_subscriptions')
+                .select('lessons_attended')
+                .eq('id', existing.student_subscription_id)
+                .single();
+
              if (subData) {
-                  await supabase.from('student_subscriptions').update({ lessons_attended: Math.max(0, (subData.lessons_attended || 0) - 1) }).eq('id', existing.student_subscription_id);
+                  await supabase
+                    .from('student_subscriptions')
+                    .update({ lessons_attended: Math.max(0, (subData.lessons_attended || 0) - 1) })
+                    .eq('id', existing.student_subscription_id);
              }
         }
         
-        await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
+        const { error } = await supabase.from('attendance').delete().eq('student_id', studentId).eq('date', date);
+        if (error) console.error("Error deleting attendance:", error);
+
         await fetchData(false);
     };
 
