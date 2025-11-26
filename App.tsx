@@ -18,6 +18,38 @@ import { Session } from '@supabase/supabase-js';
 import { StudentFinanceHistory } from './components/StudentFinanceHistory';
 import { useAppContext, AppProvider } from './AppContext';
 
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-red-50 p-4">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Что-то пошло не так</h1>
+          <p className="text-gray-700 mb-4">Произошла ошибка при загрузке приложения.</p>
+          <pre className="bg-gray-100 p-4 rounded text-sm text-red-800 overflow-auto max-w-full">
+            {this.state.error?.message}
+          </pre>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-6 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          >
+            Перезагрузить страницу
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const AuthenticatedApp: React.FC = () => {
     const { students, groups, userProfile } = useAppContext();
     const [view, setView] = useState<View>('dashboard');
@@ -103,7 +135,7 @@ const AuthenticatedApp: React.FC = () => {
     const renderView = () => {
         // Permission check
         const perms = userProfile?.permissions;
-        if (!perms) return <div>Загрузка прав доступа...</div>;
+        if (!perms) return <div className="p-4">Загрузка прав доступа...</div>;
 
         if (view === 'students' && !perms.canViewStudents) return <div className="p-4 text-red-600">Нет доступа</div>;
         if (view === 'journal' && !perms.canViewJournal) return <div className="p-4 text-red-600">Нет доступа</div>;
@@ -375,10 +407,14 @@ const App: React.FC = () => {
         const hash = window.location.hash;
         if (hash && hash.includes('type=recovery')) {
             setIsRecovery(true);
+            setLoading(false); // Stop loading immediately if it is a recovery flow
         }
 
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
+            // Only stop loading if we aren't already in recovery mode (which sets loading to false)
+            // or if we are but want to ensure session is loaded. 
+            // Actually, if recovery, we want to show UpdatePassword, so loading=false is good.
             setLoading(false);
         });
 
@@ -388,6 +424,7 @@ const App: React.FC = () => {
             setSession(session);
             if (event === 'PASSWORD_RECOVERY') {
                 setIsRecovery(true);
+                setLoading(false);
             }
         });
 
@@ -405,18 +442,18 @@ const App: React.FC = () => {
         )
     }
 
-    if (isRecovery) {
-        return <UpdatePassword onSuccess={() => setIsRecovery(false)} />;
-    }
-
-    if (!session) {
-        return <Auth />;
-    }
-
     return (
-        <AppProvider>
-            <AuthenticatedApp />
-        </AppProvider>
+        <ErrorBoundary>
+            {isRecovery ? (
+                <UpdatePassword onSuccess={() => setIsRecovery(false)} />
+            ) : !session ? (
+                <Auth />
+            ) : (
+                <AppProvider>
+                    <AuthenticatedApp />
+                </AppProvider>
+            )}
+        </ErrorBoundary>
     );
 };
 
