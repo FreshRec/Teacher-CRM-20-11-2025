@@ -28,8 +28,9 @@ export default function Auth() {
             });
             if (error) throw error;
         }
-    } catch (error: any) {
-        setMessage({ text: error.message || 'Ошибка авторизации', type: 'error' });
+    } catch (error) {
+        const errorMessage = (error as Error).message || 'Ошибка авторизации';
+        setMessage({ text: errorMessage, type: 'error' });
     } finally {
         setLoading(false);
     }
