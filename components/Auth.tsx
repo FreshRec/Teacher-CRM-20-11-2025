@@ -108,7 +108,7 @@ export default function Auth() {
               redirectTo: window.location.origin,
           });
           if (error) throw error;
-          setMessage({ text: 'Ссылка для сброса пароля отправлена на ваш Email', type: 'success' });
+          setMessage({ text: 'Ссылка для сброса пароля отправлена на ваш Email. Проверьте папку "Спам".', type: 'success' });
       } catch (error) {
            const errorMessage = (error as Error).message || 'Ошибка при сбросе пароля';
            setMessage({ text: errorMessage, type: 'error' });
