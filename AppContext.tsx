@@ -146,6 +146,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             } else {
                 showNotification('База данных успешно заполнена.', 'success');
             }
+        } else {
+            showNotification('База данных не пуста, генерация пропущена.');
         }
     }, [showNotification]);
 
@@ -232,21 +234,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ] = results;
 
             // Run seeding if we have a successful connection but no students
+            // NOTE: Automatic seeding disabled here to prevent loop if RLS hides data. 
+            // User can trigger it manually from Dashboard.
+            /*
             if (isInitialLoad && (!studentsRaw || studentsRaw.length === 0)) {
                 await seedDatabase();
-                // We do NOT refetch immediately here to avoid potential loops if seed fails.
-                // Instead, we let the UI show empty state or the user can reload.
-                // However, for better UX, we can try one targeted fetch of students/groups.
-                const { data: refreshedStudents } = await supabase.from('students').select('*').order('name');
-                const { data: refreshedGroups } = await supabase.from('groups').select('*').order('name');
-                
-                if (refreshedStudents && refreshedStudents.length > 0) {
-                     setStudents(refreshedStudents as any);
-                     setGroups((refreshedGroups || []) as any);
-                     setIsLoading(false);
-                     return;
-                }
+                // ...
             }
+            */
             
             const sanitize = (data: any[] | null | undefined) => Array.isArray(data) ? data : [];
 
@@ -745,7 +740,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addScheduleEvent, updateScheduleEvent, deleteScheduleEvent, addEventException,
         addExpense, updateExpense, deleteExpense,
         clearStudentFinancialData,
-        updateUserProfile
+        updateUserProfile,
+        seedDatabase
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
