@@ -15,6 +15,8 @@ export function UpdatePassword({ onSuccess }: { onSuccess: () => void }) {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setMessage({ text: 'Пароль успешно обновлен!', type: 'success' });
+      // Clear hash to prevent re-triggering recovery mode on reload
+      window.history.replaceState(null, '', window.location.pathname);
       setTimeout(() => {
         onSuccess();
       }, 1500);
@@ -81,6 +83,9 @@ export default function Auth() {
             const { error } = await supabase.auth.signUp({
                 email,
                 password,
+                options: {
+                    emailRedirectTo: window.location.origin
+                }
             });
             if (error) throw error;
             setMessage({ text: 'Проверьте почту для подтверждения регистрации!', type: 'success' });
