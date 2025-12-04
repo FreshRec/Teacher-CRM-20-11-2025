@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 
+const SITE_URL = 'https://teachercrm.website.yandexcloud.net';
+
 export function UpdatePassword({ onSuccess }: { onSuccess: () => void }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -73,6 +75,14 @@ export default function Auth() {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
 
+  const getRedirectUrl = () => {
+      // Prefer the hardcoded production URL if we are not on localhost, 
+      // otherwise fallback to origin (useful for local dev)
+      return window.location.hostname === 'localhost' 
+        ? window.location.origin 
+        : SITE_URL;
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -84,7 +94,7 @@ export default function Auth() {
                 email,
                 password,
                 options: {
-                    emailRedirectTo: window.location.origin
+                    emailRedirectTo: getRedirectUrl()
                 }
             });
             if (error) throw error;
@@ -110,7 +120,7 @@ export default function Auth() {
       setMessage(null);
       try {
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
-              redirectTo: window.location.origin,
+              redirectTo: getRedirectUrl(),
           });
           if (error) throw error;
           setMessage({ text: 'Ссылка для сброса пароля отправлена на ваш Email. Проверьте папку "Спам".', type: 'success' });
