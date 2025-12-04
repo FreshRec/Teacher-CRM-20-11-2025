@@ -321,7 +321,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } finally {
              if (isInitialLoad) setIsLoading(false);
         }
-    }, [seedDatabase, showNotification]);
+    }, [showNotification]);
 
     const allVisibleEvents = useMemo(() => {
         const allEvents: DisplayEvent[] = [];
@@ -754,3 +754,4 @@ export const useAppContext = () => {
     }
     return context;
 };
+  
