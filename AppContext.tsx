@@ -80,7 +80,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const seedDatabase = useCallback(async () => {
         // Check for existing groups
-        let { data: existingGroups, error: fetchGroupsError } = await supabase.from('groups').select('*');
+        const { data: existingGroups, error: fetchGroupsError } = await supabase.from('groups').select('*');
         if (fetchGroupsError) {
             console.error("Error fetching groups for seed:", fetchGroupsError);
             return;
