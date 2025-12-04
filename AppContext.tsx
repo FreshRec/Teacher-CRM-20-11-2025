@@ -79,45 +79,73 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, []);
 
     const seedDatabase = useCallback(async () => {
-        showNotification('База данных пуста. Создаю тестовые данные...');
-        const groupsToCreate = [
-            { name: 'Beginners A' },
-            { name: 'Elementary B' },
-            { name: 'Pre-Intermediate' },
-            { name: 'Upper-Intermediate C' }
-        ];
-        const { data: insertedGroups, error: groupsError } = await supabase.from('groups').insert(groupsToCreate).select();
-
-        if (groupsError || !insertedGroups) {
-            showNotification('Ошибка создания групп.', 'error');
+        // Check for existing groups
+        let { data: existingGroups, error: fetchGroupsError } = await supabase.from('groups').select('*');
+        if (fetchGroupsError) {
+            console.error("Error fetching groups for seed:", fetchGroupsError);
             return;
         }
 
-        const firstNames = ['Иван', 'Петр', 'Сергей', 'Анна', 'Мария', 'Елена', 'Дмитрий', 'Алексей', 'Ольга', 'Светлана'];
-        const lastNames = ['Иванов', 'Петров', 'Сергеев', 'Смирнов', 'Кузнецов', 'Попов', 'Васильев', 'Соколов', 'Михайлов', 'Новиков'];
-        
-        const studentsToCreate: StudentForCreation[] = [];
-        for (let i = 0; i < 100; i++) {
-            const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-            const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-            const isMale = ['Иван', 'Петр', 'Сергей', 'Дмитрий', 'Алексей'].includes(firstName);
-            
-            studentsToCreate.push({
-                name: `${lastName} ${firstName}`,
-                parent_name: `${lastName} ${isMale ? 'Отец' : 'Мать'}`,
-                parent_phone1: `+7(999)${Math.floor(100 + Math.random() * 900)}-${Math.floor(10 + Math.random() * 90)}-${Math.floor(10 + Math.random() * 90)}`,
-                birth_date: new Date(2010 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
-                balance: 0,
-                status: 'active',
-                group_ids: [insertedGroups[Math.floor(Math.random() * insertedGroups.length)].id],
-            });
+        let groupsToUse = existingGroups || [];
+
+        // If no groups, create them
+        if (groupsToUse.length === 0) {
+            showNotification('Создаю тестовые группы...');
+            const groupsToCreate = [
+                { name: 'Beginners A' },
+                { name: 'Elementary B' },
+                { name: 'Pre-Intermediate' },
+                { name: 'Upper-Intermediate C' }
+            ];
+            const { data: insertedGroups, error: groupsError } = await supabase.from('groups').insert(groupsToCreate).select();
+
+            if (groupsError || !insertedGroups) {
+                showNotification(`Ошибка создания групп: ${groupsError.message}`, 'error');
+                return;
+            }
+            groupsToUse = insertedGroups;
         }
+
+        // Check if students exist
+        const { count, error: countError } = await supabase.from('students').select('*', { count: 'exact', head: true });
         
-        const { error: newStudentsError } = await supabase.from('students').insert(studentsToCreate);
-        if (newStudentsError) { 
-            showNotification(`Ошибка создания учеников: ${newStudentsError.message}`, 'error');
-        } else {
-            showNotification('База данных успешно заполнена тестовыми данными.', 'success');
+        if (countError) {
+            console.error("Error checking student count:", countError);
+            return;
+        }
+
+        // Only create students if database is effectively empty
+        if (count === 0) {
+            showNotification('Заполняю базу данных тестовыми учениками...');
+            const firstNames = ['Иван', 'Петр', 'Сергей', 'Анна', 'Мария', 'Елена', 'Дмитрий', 'Алексей', 'Ольга', 'Светлана'];
+            const lastNames = ['Иванов', 'Петров', 'Сергеев', 'Смирнов', 'Кузнецов', 'Попов', 'Васильев', 'Соколов', 'Михайлов', 'Новиков'];
+            
+            const studentsToCreate: StudentForCreation[] = [];
+            for (let i = 0; i < 25; i++) { // Reduced to 25 for faster initial load
+                const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+                const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+                const isMale = ['Иван', 'Петр', 'Сергей', 'Дмитрий', 'Алексей'].includes(firstName);
+                
+                // Pick a random group from the available ones
+                const randomGroup = groupsToUse[Math.floor(Math.random() * groupsToUse.length)];
+
+                studentsToCreate.push({
+                    name: `${lastName} ${firstName}`,
+                    parent_name: `${lastName} ${isMale ? 'Отец' : 'Мать'}`,
+                    parent_phone1: `+7(999)${Math.floor(100 + Math.random() * 900)}-${Math.floor(10 + Math.random() * 90)}-${Math.floor(10 + Math.random() * 90)}`,
+                    birth_date: new Date(2010 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
+                    balance: 0,
+                    status: 'active',
+                    group_ids: randomGroup ? [randomGroup.id] : [],
+                });
+            }
+            
+            const { error: newStudentsError } = await supabase.from('students').insert(studentsToCreate);
+            if (newStudentsError) { 
+                showNotification(`Ошибка создания учеников: ${newStudentsError.message}`, 'error');
+            } else {
+                showNotification('База данных успешно заполнена.', 'success');
+            }
         }
     }, [showNotification]);
 
@@ -192,7 +220,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ]);
     
             const errors = results.map((res) => res.error).filter(Boolean);
-            if (errors.length > 0) throw new Error(errors.map(e => e!.message).join('\n'));
+            if (errors.length > 0) {
+                 // Log specific errors for debugging but don't crash entirely if some tables are just empty/missing
+                 console.error("Fetch errors:", errors);
+            }
     
             const [
                 { data: studentsRaw }, { data: groupsRaw }, { data: plansRaw },
@@ -200,10 +231,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: eventsRaw }, { data: exceptionsRaw }, { data: expensesRaw },
             ] = results;
 
+            // Run seeding if we have a successful connection but no students
             if (isInitialLoad && (!studentsRaw || studentsRaw.length === 0)) {
                 await seedDatabase();
-                await fetchData(false); // Refetch after seeding
-                return;
+                // We do NOT refetch immediately here to avoid potential loops if seed fails.
+                // Instead, we let the UI show empty state or the user can reload.
+                // However, for better UX, we can try one targeted fetch of students/groups.
+                const { data: refreshedStudents } = await supabase.from('students').select('*').order('name');
+                const { data: refreshedGroups } = await supabase.from('groups').select('*').order('name');
+                
+                if (refreshedStudents && refreshedStudents.length > 0) {
+                     setStudents(refreshedStudents as any);
+                     setGroups((refreshedGroups || []) as any);
+                     setIsLoading(false);
+                     return;
+                }
             }
             
             const sanitize = (data: any[] | null | undefined) => Array.isArray(data) ? data : [];
