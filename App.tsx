@@ -37,6 +37,10 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     return { hasError: true, error };
   }
 
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -421,10 +425,12 @@ const App: React.FC = () => {
 
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
-            // Only stop loading if we aren't already in recovery mode (which sets loading to false)
-            // or if we are but want to ensure session is loaded. 
-            // Actually, if recovery, we want to show UpdatePassword, so loading=false is good.
-            setLoading(false);
+            // If we are not in recovery mode, we can stop loading.
+            // If we ARE in recovery mode, we want to stay in loading=false state but show UpdatePassword.
+            // Note: getSession might return null initially if the token exchange hasn't happened yet for the hash.
+            if (!hash || !hash.includes('type=recovery')) {
+                setLoading(false);
+            }
         });
 
         const {
@@ -433,6 +439,8 @@ const App: React.FC = () => {
             setSession(session);
             if (event === 'PASSWORD_RECOVERY') {
                 setIsRecovery(true);
+                setLoading(false);
+            } else if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
                 setLoading(false);
             }
         });
