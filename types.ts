@@ -191,4 +191,5 @@ export interface IAppContext {
     deleteExpense: (id: string) => Promise<boolean>;
     clearStudentFinancialData: () => Promise<void>;
     updateUserProfile: (id: string, updates: Partial<UserProfile>) => Promise<void>;
+    seedDatabase: () => Promise<void>;
 }
