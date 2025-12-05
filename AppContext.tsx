@@ -12,9 +12,7 @@ import {
     UserPermissions
 } from './types';
 import { notificationService } from './services/notificationService';
-
-export const SYSTEM_SUBSCRIPTION_PLAN_ID = '00000000-0000-0000-0000-000000000000';
-export const DEFAULT_LESSON_PRICE = 0; // Default price for a debt lesson
+import { DEFAULT_LESSON_PRICE } from './constants';
 
 const AppContext = createContext<IAppContext | null>(null);
 
@@ -196,17 +194,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: eventsRaw }, { data: exceptionsRaw }, { data: expensesRaw },
             ] = results;
 
-            if (isInitialLoad && (!studentsRaw || studentsRaw.length === 0)) {
+            if (isInitialLoad && (!studentsRaw || (Array.isArray(studentsRaw) && studentsRaw.length === 0))) {
                 await seedDatabase();
                 await fetchData(false); // Refetch after seeding
                 return;
             }
             
-            const sanitize = (data: any[] | null | undefined) => Array.isArray(data) ? data : [];
+            const sanitize = <T,>(data: T[] | null | undefined): T[] => Array.isArray(data) ? data : [];
 
-            const sanitizedGroups = sanitize(groupsRaw).filter(g => g && g.id && g.name).map(g => ({...g}));
+            const sanitizedGroups = sanitize(groupsRaw as any[]).filter(g => g && g.id && g.name).map(g => ({...g}));
             
-            const sanitizedPlans = sanitize(plansRaw).filter(p => p && p.id).map(p => ({
+            const sanitizedPlans = sanitize(plansRaw as any[]).filter(p => p && p.id).map(p => ({
                 ...p,
                 name: p.name || 'Без имени',
                 price: typeof p.price === 'number' ? p.price : 0,
@@ -214,7 +212,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 lesson_count: typeof p.lesson_count === 'number' ? p.lesson_count : 0,
             }));
 
-            const sanitizedStudentSubs = sanitize(studentSubsRaw)
+            const sanitizedStudentSubs = sanitize(studentSubsRaw as any[])
                 .filter(s => s && s.id && s.student_id && s.subscription_plan_id && s.purchase_date && typeof s.price_paid === 'number' && typeof s.lessons_total === 'number')
                 .map(s => ({
                     ...s,
@@ -222,32 +220,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     assigned_group_id: s.assigned_group_id || null,
                 }));
 
-            const sanitizedAttendance = sanitize(attendanceRaw).filter(a => a && a.student_id && a.date && a.status).map(a => ({...a}));
+            const sanitizedAttendance = sanitize(attendanceRaw as any[]).filter(a => a && a.student_id && a.date && a.status).map(a => ({...a}));
             
-            const sanitizedTransactions = sanitize(transactionsRaw)
+            const sanitizedTransactions = sanitize(transactionsRaw as any[])
                 .filter(t => t && t.id && t.student_id && t.date && t.type && typeof t.amount === 'number')
                 .map(t => ({
                     ...t,
                     description: t.description || '',
                 }));
             
-            const sanitizedEvents = sanitize(eventsRaw)
+            const sanitizedEvents = sanitize(eventsRaw as any[])
                 .filter(e => e && e.id && e.start && e.end && e.title && !isNaN(new Date(e.start).getTime()))
                 .map(e => ({
                     ...e,
                     is_recurring: !!e.is_recurring,
                 }));
 
-            const sanitizedExceptions = sanitize(exceptionsRaw).filter(e => e && e.original_event_id && e.original_start_time).map(e => ({...e}));
+            const sanitizedExceptions = sanitize(exceptionsRaw as any[]).filter(e => e && e.original_event_id && e.original_start_time).map(e => ({...e}));
 
-            const sanitizedExpenses = sanitize(expensesRaw)
+            const sanitizedExpenses = sanitize(expensesRaw as any[])
                 .filter(e => e && e.id && e.date && typeof e.amount === 'number')
                 .map(e => ({
                     ...e,
                     description: e.description || 'Без описания',
                 }));
 
-            const sanitizedStudents = sanitize(studentsRaw).filter(s => s && s.id).map(s => ({
+            const sanitizedStudents = sanitize(studentsRaw as any[]).filter(s => s && s.id).map(s => ({
                 ...s,
                 name: s.name || 'Имя не указано',
                 balance: typeof s.balance === 'number' ? s.balance : 0,
@@ -275,8 +273,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             setStudents(enrichedStudents);
     
-        } catch (error: any) {
-            showNotification(`Критическая ошибка загрузки данных: ${error.message}`, 'error');
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            showNotification(`Критическая ошибка загрузки данных: ${msg}`, 'error');
         } finally {
              if (isInitialLoad) setIsLoading(false);
         }
@@ -393,6 +392,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const updateStudent = async (id: string, updates: Partial<Student>): Promise<Student | null> => {
         setIsSaving(true);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { subscriptions, transactions, ...updatePayload } = updates;
         const { data, error } = await supabase.from('students').update(updatePayload).eq('id', id).select().single();
         if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return null; }
@@ -418,8 +418,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             await fetchData(false);
             return true;
-        } catch (error: any) {
-            showNotification(`Ошибка при удалении: ${error.message}`, 'error');
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            showNotification(`Ошибка при удалении: ${msg}`, 'error');
             return false;
         } finally {
             setIsSaving(false);
@@ -471,8 +472,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             await fetchData(false);
             return true;
-        } catch (error: any) {
-            showNotification(`Ошибка при удалении группы: ${error.message}`, 'error');
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            showNotification(`Ошибка при удалении группы: ${msg}`, 'error');
             return false;
         } finally {
             setIsSaving(false);
@@ -578,8 +580,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             await fetchData(false);
             return newSubData;
-        } catch(error: any) {
-            showNotification(error.message, 'error');
+        } catch(error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            showNotification(msg, 'error');
             return null;
         } finally {
             setIsSaving(false);
@@ -618,8 +621,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             await supabase.from('student_subscriptions').delete().eq('id', sub.id);
             showNotification('Абонемент аннулирован, средства возвращены на баланс.', 'success');
-        } catch(e: any) {
-            showNotification(e.message, 'error');
+        } catch(e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Unknown error';
+            showNotification(msg, 'error');
         } finally {
             await fetchData(false);
             setIsSaving(false);
@@ -651,8 +655,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
             await supabase.from('student_subscriptions').delete().eq('id', sub.id);
             showNotification('Абонемент аннулирован, возврат наличными зафиксирован.', 'success');
-        } catch (e: any) {
-            showNotification(e.message, 'error');
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Unknown error';
+            showNotification(msg, 'error');
         } finally {
             await fetchData(false);
             setIsSaving(false);
@@ -730,8 +735,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 });
             }
             
-        } catch (error: any) {
-            showNotification(`Ошибка: ${error.message}`, 'error');
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            showNotification(`Ошибка: ${msg}`, 'error');
         } finally {
             await fetchData(false);
             setIsSaving(false);
@@ -788,8 +794,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const { error } = await supabase.from('attendance').delete().match({ student_id: studentId, date });
             if (error) throw error;
             
-        } catch (error: any) {
-             showNotification(`Ошибка удаления отметки: ${error.message}`, 'error');
+        } catch (error: unknown) {
+             const msg = error instanceof Error ? error.message : 'Unknown error';
+             showNotification(`Ошибка удаления отметки: ${msg}`, 'error');
         } finally {
             await fetchData(false);
             setIsSaving(false);
@@ -879,8 +886,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (studentsError) throw studentsError;
 
             showNotification('Все финансовые данные учеников и история посещаемости очищены.', 'success');
-        } catch (error: any) {
-            showNotification(`Ошибка очистки: ${error.message}.`, 'error');
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            showNotification(`Ошибка очистки: ${msg}.`, 'error');
         } finally {
             await fetchData(false);
             setIsSaving(false);
