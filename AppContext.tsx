@@ -151,7 +151,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, [showNotification]);
 
-    const fetchUserProfile = async () => {
+    const fetchUserProfile = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
 
@@ -190,9 +190,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 if (all) setAllProfiles(all);
             }
         }
-    };
+    }, []);
 
-    const updateUserProfile = async (id: string, updates: Partial<UserProfile>) => {
+    const updateUserProfile = useCallback(async (id: string, updates: Partial<UserProfile>) => {
         setIsSaving(true);
         const { error } = await supabase.from('profiles').update(updates).eq('id', id);
         if (error) {
@@ -202,7 +202,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             await fetchUserProfile(); // Refresh
         }
         setIsSaving(false);
-    }
+    }, [fetchUserProfile, showNotification]);
 
     const fetchData = useCallback(async (isInitialLoad = true) => {
         if (isInitialLoad) setIsLoading(true);
@@ -232,16 +232,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: studentSubsRaw }, { data: attendanceRaw }, { data: transactionsRaw },
                 { data: eventsRaw }, { data: exceptionsRaw }, { data: expensesRaw },
             ] = results;
-
-            // Run seeding if we have a successful connection but no students
-            // NOTE: Automatic seeding disabled here to prevent loop if RLS hides data. 
-            // User can trigger it manually from Dashboard.
-            /*
-            if (isInitialLoad && (!studentsRaw || studentsRaw.length === 0)) {
-                await seedDatabase();
-                // ...
-            }
-            */
             
             const sanitize = (data: any[] | null | undefined) => Array.isArray(data) ? data : [];
 
@@ -321,7 +311,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } finally {
              if (isInitialLoad) setIsLoading(false);
         }
-    }, [showNotification]);
+    }, [fetchUserProfile, showNotification]);
 
     const allVisibleEvents = useMemo(() => {
         const allEvents: DisplayEvent[] = [];
@@ -400,7 +390,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         fetchData(true);
     }, [fetchData]);
 
-    const addStudent = async (student: StudentForCreation): Promise<Student | null> => {
+    const addStudent = useCallback(async (student: StudentForCreation): Promise<Student | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('students').insert(student).select().single();
         if (error) {
@@ -416,9 +406,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         setIsSaving(false);
         return null;
-    };
+    }, [fetchData, showNotification]);
     
-    const addStudents = async (students: StudentForCreation[]): Promise<Student[] | null> => {
+    const addStudents = useCallback(async (students: StudentForCreation[]): Promise<Student[] | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('students').insert(students).select();
         if (error) { showNotification(`Ошибка: ${error.message}`, 'error'); setIsSaving(false); return null; }
@@ -430,9 +420,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         setIsSaving(false);
         return null;
-    };
+    }, [fetchData, showNotification]);
 
-    const updateStudent = async (id: string, updates: Partial<Student>): Promise<Student | null> => {
+    const updateStudent = useCallback(async (id: string, updates: Partial<Student>): Promise<Student | null> => {
         setIsSaving(true);
         // Exclude join fields from update payload
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -447,9 +437,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await fetchData(false);
         setIsSaving(false);
         return data as Student;
-    };
+    }, [fetchData, showNotification]);
 
-    const deleteStudents = async (ids: string[]): Promise<boolean> => {
+    const deleteStudents = useCallback(async (ids: string[]): Promise<boolean> => {
         setIsSaving(true);
         const { error } = await supabase.from('students').delete().in('id', ids);
         if (error) {
@@ -460,39 +450,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await fetchData(false);
         setIsSaving(false);
         return true;
-    };
+    }, [fetchData, showNotification]);
 
     // Groups
-    const addGroup = async (group: GroupForCreation): Promise<Group | null> => {
+    const addGroup = useCallback(async (group: GroupForCreation): Promise<Group | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('groups').insert(group).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as Group;
-    };
+    }, [fetchData, showNotification]);
 
-    const updateGroup = async (id: string, updates: Partial<Group>): Promise<Group | null> => {
+    const updateGroup = useCallback(async (id: string, updates: Partial<Group>): Promise<Group | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('groups').update(updates).eq('id', id).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as Group;
-    };
+    }, [fetchData, showNotification]);
 
-    const deleteGroup = async (id: string): Promise<boolean> => {
+    const deleteGroup = useCallback(async (id: string): Promise<boolean> => {
         setIsSaving(true);
         const { error } = await supabase.from('groups').delete().eq('id', id);
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return false; }
         await fetchData(false); setIsSaving(false); return true;
-    };
+    }, [fetchData, showNotification]);
 
     // Subscription Plans
-    const addSubscriptionPlan = async (plan: SubscriptionPlanForCreation): Promise<SubscriptionPlan | null> => {
+    const addSubscriptionPlan = useCallback(async (plan: SubscriptionPlanForCreation): Promise<SubscriptionPlan | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('subscription_plans').insert(plan).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as SubscriptionPlan;
-    };
+    }, [fetchData, showNotification]);
 
-    const updateSubscriptionPlan = async (id: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | null> => {
+    const updateSubscriptionPlan = useCallback(async (id: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | null> => {
         setIsSaving(true);
         if (updates.is_default) {
             // Unset other defaults
@@ -501,17 +491,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const { data, error } = await supabase.from('subscription_plans').update(updates).eq('id', id).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as SubscriptionPlan;
-    };
+    }, [fetchData, showNotification]);
 
-    const deleteSubscriptionPlan = async (id: string): Promise<boolean> => {
+    const deleteSubscriptionPlan = useCallback(async (id: string): Promise<boolean> => {
         setIsSaving(true);
         const { error } = await supabase.from('subscription_plans').delete().eq('id', id);
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return false; }
         await fetchData(false); setIsSaving(false); return true;
-    };
+    }, [fetchData, showNotification]);
 
     // Student Subscriptions & Finance
-    const addStudentSubscription = async (sub: StudentSubscriptionForCreation): Promise<StudentSubscription | null> => {
+    const addStudentSubscription = useCallback(async (sub: StudentSubscriptionForCreation): Promise<StudentSubscription | null> => {
         setIsSaving(true);
         
         // 1. Create Subscription
@@ -533,16 +523,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setIsSaving(false);
         showNotification('Абонемент добавлен и оплата зафиксирована.');
         return newSub as StudentSubscription;
-    };
+    }, [fetchData, showNotification]);
 
-    const updateStudentSubscription = async (id: string, updates: Partial<StudentSubscription>): Promise<StudentSubscription | null> => {
+    const updateStudentSubscription = useCallback(async (id: string, updates: Partial<StudentSubscription>): Promise<StudentSubscription | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('student_subscriptions').update(updates).eq('id', id).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as StudentSubscription;
-    };
+    }, [fetchData, showNotification]);
 
-    const refundToBalanceAndCancelSubscription = async (subscriptionId: string): Promise<void> => {
+    const refundToBalanceAndCancelSubscription = useCallback(async (subscriptionId: string): Promise<void> => {
         setIsSaving(true);
         const sub = studentSubscriptions.find(s => s.id === subscriptionId);
         if (!sub) { setIsSaving(false); return; }
@@ -566,9 +556,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await fetchData(false);
         setIsSaving(false);
         showNotification('Средства возвращены на баланс, абонемент аннулирован.');
-    };
+    }, [studentSubscriptions, fetchData, showNotification]);
 
-    const processCashRefundAndCancelSubscription = async (subscriptionId: string): Promise<void> => {
+    const processCashRefundAndCancelSubscription = useCallback(async (subscriptionId: string): Promise<void> => {
         setIsSaving(true);
         const sub = studentSubscriptions.find(s => s.id === subscriptionId);
         if (!sub) { setIsSaving(false); return; }
@@ -591,17 +581,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await fetchData(false);
         setIsSaving(false);
         showNotification('Средства возвращены наличными, абонемент аннулирован.');
-    };
+    }, [studentSubscriptions, fetchData, showNotification]);
 
-    const addTransaction = async (transaction: FinancialTransactionForCreation): Promise<FinancialTransaction | null> => {
+    const addTransaction = useCallback(async (transaction: FinancialTransactionForCreation): Promise<FinancialTransaction | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('financial_transactions').insert(transaction).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as FinancialTransaction;
-    };
+    }, [fetchData, showNotification]);
 
     // Attendance
-    const setAttendanceRecord = async (record: AttendanceForCreation, groupId: string): Promise<void> => {
+    const setAttendanceRecord = useCallback(async (record: AttendanceForCreation, groupId: string): Promise<void> => {
         setIsSaving(true);
         try {
             const existing = attendance.find(a => a.student_id === record.student_id && a.date === record.date);
@@ -633,25 +623,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             await fetchData(false);
             setIsSaving(false);
         }
-    };
+    }, [attendance, students, fetchData, showNotification]);
 
-    const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
+    const deleteAttendanceRecord = useCallback(async (studentId: string, date: string): Promise<void> => {
         setIsSaving(true);
         try {
             // Robust check: try to find in state first, if not try DB to ensure subscription logic works
             let existing = attendance.find(a => a.student_id === studentId && a.date === date);
-            
+
             if (!existing) {
                 // If state is potentially stale, check DB
                 const { data } = await supabase.from('attendance').select('*').eq('student_id', studentId).eq('date', date).maybeSingle();
                 if (data) existing = data;
             }
 
-            if (existing?.student_subscription_id) {
-                const sub = studentSubscriptions.find(s => s.id === existing.student_subscription_id);
-                // If sub is not in state, fetch it? For now assume state is reasonably fresh. 
-                // We can also fetch sub from DB if we want to be 100% paranoid, but this should suffice for now.
-                
+            if (existing && existing.student_subscription_id) {
+                let sub = studentSubscriptions.find(s => s.id === existing!.student_subscription_id);
+                // If sub is not in state, fetch from DB
+                if (!sub) {
+                    const { data } = await supabase.from('student_subscriptions').select('*').eq('id', existing.student_subscription_id).maybeSingle();
+                    if (data) sub = data;
+                }
+
                 if (sub) {
                     const newCount = Math.max(0, sub.lessons_attended - 1);
                     const { error: downError } = await supabase.from('student_subscriptions')
@@ -670,60 +663,60 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             await fetchData(false);
             setIsSaving(false);
         }
-    };
+    }, [attendance, studentSubscriptions, fetchData, showNotification]);
 
     // Schedule
-    const addScheduleEvent = async (event: ScheduleEventForCreation): Promise<ScheduleEvent | null> => {
+    const addScheduleEvent = useCallback(async (event: ScheduleEventForCreation): Promise<ScheduleEvent | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('schedule_events').insert(event).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as ScheduleEvent;
-    };
+    }, [fetchData, showNotification]);
 
-    const updateScheduleEvent = async (id: string, updates: Partial<ScheduleEvent>): Promise<ScheduleEvent | null> => {
+    const updateScheduleEvent = useCallback(async (id: string, updates: Partial<ScheduleEvent>): Promise<ScheduleEvent | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('schedule_events').update(updates).eq('id', id).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as ScheduleEvent;
-    };
+    }, [fetchData, showNotification]);
 
-    const deleteScheduleEvent = async (id: string): Promise<boolean> => {
+    const deleteScheduleEvent = useCallback(async (id: string): Promise<boolean> => {
         setIsSaving(true);
         const { error } = await supabase.from('schedule_events').delete().eq('id', id);
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return false; }
         await fetchData(false); setIsSaving(false); return true;
-    };
+    }, [fetchData, showNotification]);
 
-    const addEventException = async (exception: ScheduleEventException): Promise<ScheduleEventException | null> => {
+    const addEventException = useCallback(async (exception: ScheduleEventException): Promise<ScheduleEventException | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('schedule_event_exceptions').upsert(exception).select().single();
          if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as ScheduleEventException;
-    };
+    }, [fetchData, showNotification]);
 
     // Expenses
-    const addExpense = async (expense: ExpenseForCreation): Promise<Expense | null> => {
+    const addExpense = useCallback(async (expense: ExpenseForCreation): Promise<Expense | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('expenses').insert(expense).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as Expense;
-    };
+    }, [fetchData, showNotification]);
 
-    const updateExpense = async (id: string, updates: Partial<Omit<Expense, 'id'>>): Promise<Expense | null> => {
+    const updateExpense = useCallback(async (id: string, updates: Partial<Omit<Expense, 'id'>>): Promise<Expense | null> => {
         setIsSaving(true);
         const { data, error } = await supabase.from('expenses').update(updates).eq('id', id).select().single();
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return null; }
         await fetchData(false); setIsSaving(false); return data as Expense;
-    };
+    }, [fetchData, showNotification]);
 
-    const deleteExpense = async (id: string): Promise<boolean> => {
+    const deleteExpense = useCallback(async (id: string): Promise<boolean> => {
         setIsSaving(true);
         const { error } = await supabase.from('expenses').delete().eq('id', id);
         if (error) { showNotification(error.message, 'error'); setIsSaving(false); return false; }
         await fetchData(false); setIsSaving(false); return true;
-    };
+    }, [fetchData, showNotification]);
 
-    const clearStudentFinancialData = async (): Promise<void> => {
+    const clearStudentFinancialData = useCallback(async (): Promise<void> => {
         setIsSaving(true);
         // Delete all transactions, subscriptions, attendance
         await supabase.from('financial_transactions').delete().neq('id', SYSTEM_SUBSCRIPTION_PLAN_ID); 
@@ -735,7 +728,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await fetchData(false);
         setIsSaving(false);
         showNotification('Финансовые данные очищены.', 'success');
-    };
+    }, [fetchData, showNotification]);
 
     const value: IAppContext = useMemo(() => ({
         userProfile, allProfiles,
@@ -757,7 +750,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         userProfile, allProfiles,
         students, groups, subscriptionPlans, attendance, transactions, scheduleEvents, eventExceptions, allVisibleEvents, expenses,
         notifications, isLoading, isSaving,
-        showNotification, seedDatabase
+        showNotification, seedDatabase,
+        addStudent, addStudents, updateStudent, deleteStudents,
+        addGroup, updateGroup, deleteGroup,
+        addSubscriptionPlan, updateSubscriptionPlan, deleteSubscriptionPlan,
+        addStudentSubscription, updateStudentSubscription, refundToBalanceAndCancelSubscription, processCashRefundAndCancelSubscription,
+        addTransaction,
+        setAttendanceRecord, deleteAttendanceRecord,
+        addScheduleEvent, updateScheduleEvent, deleteScheduleEvent, addEventException,
+        addExpense, updateExpense, deleteExpense,
+        clearStudentFinancialData, updateUserProfile
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
