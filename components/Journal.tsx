@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useRef } from 'react';
 import { useAppContext } from '../AppContext';
 import { Student, Attendance, StudentForCreation } from '../types';
@@ -59,6 +61,12 @@ const JournalCell: React.FC<{
             status: 'present', 
             grade: grade ?? null // Pass null if undefined to clear the grade
         }, selectedGroupId);
+        setGradeModalOpen(false);
+    };
+
+    const handleDeleteRecord = async () => {
+        const dateStr = toLocalISOString(date);
+        await context.deleteAttendanceRecord(student.id, dateStr);
         setGradeModalOpen(false);
     };
 
@@ -159,7 +167,10 @@ const JournalCell: React.FC<{
                             ))}
                         </div>
                         <button onClick={() => handleSetGrade(undefined)} className="p-2 mt-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 md:text-lg">
-                            Убрать оценку
+                            Убрать оценку (оставить 'Был')
+                        </button>
+                        <button onClick={handleDeleteRecord} className="p-2 mt-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 md:text-lg">
+                            Удалить посещение (снять отметку)
                         </button>
                     </div>
                 </Modal>
