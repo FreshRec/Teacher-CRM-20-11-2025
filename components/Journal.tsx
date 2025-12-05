@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useMemo, useRef } from 'react';
 import { useAppContext } from '../AppContext';
 import { Student, Attendance, StudentForCreation } from '../types';
@@ -236,7 +231,7 @@ const Journal: React.FC<JournalProps> = ({ currentDate, selectedGroupId, isDeskt
     }, [context.students, selectedGroupId]);
 
     const displayedAttendance = useMemo(() => {
-        // Use local date string formatting
+        // Use local date string formatting to match JournalCell
         const displayedDateStrings = new Set(daysToDisplay.map(d => toLocalISOString(d)));
         const records = new Map<string, Attendance>();
         context.attendance.forEach(a => {
