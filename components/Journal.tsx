@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useRef } from 'react';
 import { useAppContext } from '../AppContext';
 import { Student, Attendance, StudentForCreation } from '../types';
@@ -170,7 +172,7 @@ const JournalCell: React.FC<{
                             Убрать оценку (оставить 'Был')
                         </button>
                         <button onClick={handleDeleteRecord} className="p-2 mt-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 md:text-lg">
-                            Удалить посещение (снять отметку)
+                            Удалить посещение
                         </button>
                     </div>
                 </Modal>
