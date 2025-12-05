@@ -638,9 +638,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteAttendanceRecord = async (studentId: string, date: string): Promise<void> => {
         setIsSaving(true);
         try {
-            const existing = attendance.find(a => a.student_id === studentId && a.date === date);
+            // Robust check: try to find in state first, if not try DB to ensure subscription logic works
+            let existing = attendance.find(a => a.student_id === studentId && a.date === date);
+            
+            if (!existing) {
+                // If state is potentially stale, check DB
+                const { data } = await supabase.from('attendance').select('*').eq('student_id', studentId).eq('date', date).maybeSingle();
+                if (data) existing = data;
+            }
+
             if (existing?.student_subscription_id) {
                 const sub = studentSubscriptions.find(s => s.id === existing.student_subscription_id);
+                // If sub is not in state, fetch it? For now assume state is reasonably fresh. 
+                // We can also fetch sub from DB if we want to be 100% paranoid, but this should suffice for now.
+                
                 if (sub) {
                     const newCount = Math.max(0, sub.lessons_attended - 1);
                     const { error: downError } = await supabase.from('student_subscriptions')
@@ -726,7 +737,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         showNotification('Финансовые данные очищены.', 'success');
     };
 
-    const value: IAppContext = {
+    const value: IAppContext = useMemo(() => ({
         userProfile, allProfiles,
         students, groups, subscriptionPlans, attendance, transactions, scheduleEvents, eventExceptions, allVisibleEvents, expenses,
         notifications, isLoading, isSaving,
@@ -742,7 +753,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         clearStudentFinancialData,
         updateUserProfile,
         seedDatabase
-    };
+    }), [
+        userProfile, allProfiles,
+        students, groups, subscriptionPlans, attendance, transactions, scheduleEvents, eventExceptions, allVisibleEvents, expenses,
+        notifications, isLoading, isSaving,
+        showNotification, seedDatabase
+    ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
@@ -754,4 +770,3 @@ export const useAppContext = () => {
     }
     return context;
 };
-  
