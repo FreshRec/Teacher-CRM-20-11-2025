@@ -204,3 +204,4 @@ export interface IAppContext {
     updateUserProfile: (id: string, updates: Partial<UserProfile>) => Promise<void>;
     seedDatabase: () => Promise<void>;
 }
+
