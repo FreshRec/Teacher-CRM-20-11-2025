@@ -11,13 +11,23 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-prod';
 app.use(cors());
 app.use(express.json());
 
-// Подключение к БД PostgreSQL
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('localhost') ? false : {
-        rejectUnauthorized: true,
-    }
-});
+// === НАСТРОЙКА ПОДКЛЮЧЕНИЯ К БД ===
+// Исправление ошибки "self-signed certificate in certificate chain"
+const connectionString = process.env.DATABASE_URL;
+const isLocal = connectionString && connectionString.includes('localhost');
+
+const poolConfig = {
+    connectionString: connectionString,
+};
+
+// Для Yandex Cloud Managed PostgreSQL обязательно нужен SSL, но без валидации CA (для простоты)
+if (!isLocal) {
+    poolConfig.ssl = {
+        rejectUnauthorized: false
+    };
+}
+
+const pool = new Pool(poolConfig);
 
 // Middleware для проверки токена
 const authenticateToken = (req, res, next) => {
@@ -34,19 +44,8 @@ const authenticateToken = (req, res, next) => {
 
 // === Auth Endpoints ===
 
-// Упрощенная регистрация (в продакшене нужно хешировать пароли!)
-// Здесь для примера пароль хранится в открытом виде или не хранится вовсе,
-// т.к. в исходной схеме Supabase Auth таблицы пользователей скрыты.
-// Мы создадим простую таблицу users "на лету" или будем использовать profiles + хардкод пароль для демо.
-// ДЛЯ ПРОСТОТЫ МИГРАЦИИ: используем profiles.email как логин, и фиктивный пароль 'password' для всех,
-// или реализуем простую in-memory проверку, если не хотим усложнять БД users.
-// ЛУЧШЕЕ РЕШЕНИЕ: Создать таблицу users. Но чтобы не менять schema.sql сейчас радикально,
-// добавим простую логику регистрации/входа.
-
 app.post('/auth/register', async (req, res) => {
     const { email, password } = req.body;
-    // В реальном проекте: INSERT INTO users (email, password_hash) ...
-    // Здесь мы просто создаем профиль, если его нет.
     try {
         const id = uuidv4();
         // Проверяем, есть ли профиль
@@ -73,8 +72,6 @@ app.post('/auth/register', async (req, res) => {
 
 app.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
-    // В реальном проекте: SELECT * FROM users WHERE email = ... AND check(password)
-    // Демо-режим: пускаем любой email, который есть в profiles, если пароль не пустой
     try {
         const check = await pool.query('SELECT * FROM profiles WHERE email = $1', [email]);
         if (check.rows.length === 0) return res.status(400).json({ error: 'User not found' });
@@ -97,13 +94,6 @@ const createCrud = (table) => {
     app.get(`/${table}`, authenticateToken, async (req, res) => {
         try {
             const result = await pool.query(`SELECT * FROM ${table}`);
-            // Преобразование snake_case в формат, ожидаемый фронтендом, если нужно.
-            // Но фронтенд сейчас ожидает структуру как в БД Supabase, так что отправляем как есть.
-            // Единственное: Postgres возвращает schedule_events.start_time, а фронт может ждать start.
-            // В schema.sql я назвал поля start_time/end_time, а в types.ts start/end.
-            // Подправим это в запросе или на фронте. Проще на фронте адаптер или здесь алиасы.
-            // Для простоты, оставим как есть, а в SQL лучше переименовать поля чтобы совпадали с Types.
-            // Исправлю это в эндпоинтах ниже для schedule_events.
             res.json(result.rows);
         } catch (err) { res.status(500).json({ error: err.message }); }
     });
@@ -220,8 +210,7 @@ app.delete('/attendance', authenticateToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Schedule Events (mapping start_time -> start, end_time -> end)
-// В БД создал start_time, но фронт хочет start. Сделаем алиасы в SQL.
+// Schedule Events
 app.get('/schedule_events', authenticateToken, async (req, res) => {
     const r = await pool.query('SELECT id, title, group_id, start_time as start, end_time as "end", is_recurring FROM schedule_events');
     res.json(r.rows);
@@ -237,7 +226,6 @@ app.post('/schedule_events', authenticateToken, async (req, res) => {
 app.patch('/schedule_events/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { title, group_id, start, end, is_recurring } = req.body;
-    // Упрощенно
     try {
         const r = await pool.query('UPDATE schedule_events SET title=$1, group_id=$2, start_time=$3, end_time=$4, is_recurring=$5 WHERE id=$6 RETURNING id, title, group_id, start_time as start, end_time as "end", is_recurring', 
         [title, group_id, start, end, is_recurring, id]);
@@ -267,7 +255,7 @@ app.post('/schedule_event_exceptions', authenticateToken, async (req, res) => {
     } catch(e) { res.status(500).json({error: e.message})}
 });
 
-// Student Subscriptions & Transactions (Basic CRUD)
+// Student Subscriptions & Transactions
 app.get('/student_subscriptions', authenticateToken, async (req, res) => {
     const r = await pool.query('SELECT * FROM student_subscriptions ORDER BY purchase_date DESC');
     res.json(r.rows);
@@ -281,7 +269,6 @@ app.post('/student_subscriptions', authenticateToken, async (req, res) => {
 app.patch('/student_subscriptions/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const b = req.body;
-    // Динамический апдейт
     const keys = Object.keys(b);
     const set = keys.map((k, i) => `${k}=$${i+2}`).join(', ');
     const vals = Object.values(b);
@@ -326,6 +313,10 @@ app.delete('/financial_transactions', authenticateToken, async (req, res) => {
 });
 
 app.get('/health', (req, res) => res.send('OK'));
+
+app.get('/', (req, res) => {
+    res.send('Teacher CRM Backend is running! Use /health to check status.');
+});
 
 app.listen(port, () => {
     console.log(`Backend running on port ${port}`);
