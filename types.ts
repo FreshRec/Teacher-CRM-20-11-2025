@@ -191,7 +191,7 @@ export interface IAppContext {
     refundToBalanceAndCancelSubscription: (subscriptionId: string) => Promise<void>;
     processCashRefundAndCancelSubscription: (subscriptionId: string) => Promise<void>;
     addTransaction: (transaction: FinancialTransactionForCreation) => Promise<FinancialTransaction | null>;
-    setAttendanceRecord: (record: AttendanceForCreation, groupId: string) => Promise<void>;
+    setAttendanceRecord: (record: AttendanceForCreation) => Promise<void>;
     deleteAttendanceRecord: (studentId: string, date: string) => Promise<void>;
     addScheduleEvent: (event: ScheduleEventForCreation) => Promise<ScheduleEvent | null>;
     updateScheduleEvent: (id: string, updates: Partial<ScheduleEvent>) => Promise<ScheduleEvent | null>;
@@ -204,4 +204,3 @@ export interface IAppContext {
     updateUserProfile: (id: string, updates: Partial<UserProfile>) => Promise<void>;
     seedDatabase: () => Promise<void>;
 }
-
