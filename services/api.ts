@@ -74,7 +74,7 @@ export const api = {
                 return { data: Array.isArray(data) ? [responseData] : responseData, error: res.ok ? null : new Error(responseData.error) };
             },
             update: (updates: any) => ({
-                eq: async (col: string, val: string) => {
+                eq: async (_col: string, val: string) => {
                     const res = await fetch(`${API_URL}/${table}/${val}`, {
                         method: 'PATCH',
                         headers: getHeaders(),
@@ -85,12 +85,12 @@ export const api = {
                 }
             }),
             delete: () => ({
-                eq: async (col: string, val: string) => {
+                eq: async (_col: string, val: string) => {
                      // Удаление по ID
                     const res = await fetch(`${API_URL}/${table}?id=${val}`, { method: 'DELETE', headers: getHeaders() });
                     return { error: res.ok ? null : new Error('Delete failed') };
                 },
-                in: async (col: string, vals: string[]) => {
+                in: async (_col: string, vals: string[]) => {
                      // Массовое удаление
                     const res = await fetch(`${API_URL}/${table}?ids=${vals.join(',')}`, { method: 'DELETE', headers: getHeaders() });
                     return { error: res.ok ? null : new Error('Delete failed') };
@@ -102,7 +102,7 @@ export const api = {
                     return { error: res.ok ? null : new Error('Delete failed') };
                 }
             }),
-            upsert: async (data: any) => {
+            upsert: async (data: any, _config?: any) => {
                  // Реализуем как POST для упрощения, сервер должен обрабатывать ON CONFLICT
                  // В server.js это реализовано для attendance и exceptions
                 const payload = Array.isArray(data) ? data[0] : data; 
