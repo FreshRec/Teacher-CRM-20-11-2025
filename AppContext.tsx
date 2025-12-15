@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { api } from './services/api';
 import { 
@@ -545,6 +546,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAppContext = (): IAppContext => {
     const context = useContext(AppContext);
     if (context === null) {
