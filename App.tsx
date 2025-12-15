@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { View } from './types';
+import { View, Session } from './types';
 import { DashboardIcon, StudentsIcon, JournalIcon, SubscriptionsIcon, ScheduleIcon, FinanceIcon, ArchiveIcon, MenuIcon, GroupsIcon, LogoutIcon, AdminIcon } from './components/icons';
 import Dashboard from './components/Dashboard';
 import Students from './components/Students';
@@ -12,9 +13,6 @@ import Groups from './components/Groups';
 import AdminPanel from './components/AdminPanel';
 import Auth, { UpdatePassword } from './components/Auth';
 import { api } from './services/api';
-// Использование Session из типов Supabase, т.к. структура совместима или создадим свою
-import { Session } from '@supabase/supabase-js'; 
-
 import { StudentFinanceHistory } from './components/StudentFinanceHistory';
 import { useAppContext, AppProvider } from './AppContext';
 
@@ -199,8 +197,7 @@ const AuthenticatedApp: React.FC = () => {
         }
     };
     
-    // Header Content (simplified for brevity, logic remains same as original)
-    // ... (same renderHeaderContent logic)
+    // Header Content
      const renderHeaderContent = () => {
         const titleMap: Record<string, string> = {
             dashboard: 'Обзор',
@@ -413,13 +410,13 @@ const AuthenticatedApp: React.FC = () => {
 };
 
 const App: React.FC = () => {
-    // В Supabase Session, но мы используем свою структуру, совместимую с ней
+    // Session используется свой локальный
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         api.auth.getSession().then(({ data: { session } }) => {
-            setSession(session as any);
+            setSession(session);
             setLoading(false);
         });
     }, []);
