@@ -55,28 +55,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!session?.user) return;
 
         try {
-            // Используем api.ts для запроса, чтобы URL брался централизованно
-            const { data: profile, error } = await api.from('profiles').select({ id: session.user.id });
+            // Используем api.ts для запроса профиля
+            const { data: profileData, error } = await api.from('profiles').select({ id: session.user.id });
             
             if (error) throw error;
 
-            if (profile) {
-                // api.ts select возвращает данные как есть (объект если передан id, иначе массив)
-                // Типизация any здесь, так как Mock и Real API немного по-разному себя ведут в edge-cases,
-                // но server.js точно вернет объект, если передан id.
-                const profileData = profile as UserProfile;
-                setUserProfile(profileData);
+            if (profileData) {
+                // api.ts select может вернуть объект (если был query) или массив
+                // В нашем случае backend при запросе с ?id=... возвращает объект
+                const profile = profileData as UserProfile;
+                setUserProfile(profile);
                 
-                if (profileData.role === 'admin') {
+                if (profile.role === 'admin') {
                     const { data: all } = await api.from('profiles').select();
-                    if (all) setAllProfiles(all as UserProfile[]);
+                    if (Array.isArray(all)) {
+                        setAllProfiles(all as UserProfile[]);
+                    }
                 }
             }
         } catch (e: any) {
             console.error("Failed to fetch user profile", e);
-            showNotification(`Не удалось загрузить профиль: ${e.message}`, 'error');
+            // Не показываем уведомление об ошибке профиля, чтобы не спамить при первом входе, 
+            // так как профиль может создаваться асинхронно
         }
-    }, [showNotification]);
+    }, []);
 
     const updateUserProfile = useCallback(async (id: string, updates: Partial<UserProfile>) => {
         setIsSaving(true);
@@ -128,33 +130,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 lesson_count: typeof p.lesson_count === 'number' ? p.lesson_count : 0,
             }));
 
-            const sanitizedStudentSubs = sanitize(studentSubsRaw).map((s: any) => ({
-                ...s,
-                price_paid: Number(s.price_paid),
-                lessons_attended: typeof s.lessons_attended === 'number' ? s.lessons_attended : 0,
-                assigned_group_id: s.assigned_group_id || null,
-            }));
+            const sanitizedStudentSubs = sanitize(studentSubsRaw)
+                .map((s: any) => ({
+                    ...s,
+                    price_paid: Number(s.price_paid),
+                    lessons_attended: typeof s.lessons_attended === 'number' ? s.lessons_attended : 0,
+                    assigned_group_id: s.assigned_group_id || null,
+                }));
 
             const sanitizedAttendance = sanitize(attendanceRaw).filter((a: any) => a && a.student_id && a.date && a.status).map((a: any) => ({...a}));
             
-            const sanitizedTransactions = sanitize(transactionsRaw).map((t: any) => ({
-                ...t,
-                amount: Number(t.amount),
-                description: t.description || '',
-            }));
+            const sanitizedTransactions = sanitize(transactionsRaw)
+                .map((t: any) => ({
+                    ...t,
+                    amount: Number(t.amount),
+                    description: t.description || '',
+                }));
             
-            const sanitizedEvents = sanitize(eventsRaw).filter((e: any) => e && e.id && e.start && e.end && e.title).map((e: any) => ({
-                ...e,
-                is_recurring: !!e.is_recurring,
-            }));
+            const sanitizedEvents = sanitize(eventsRaw)
+                .filter((e: any) => e && e.id && e.start && e.end && e.title)
+                .map((e: any) => ({
+                    ...e,
+                    is_recurring: !!e.is_recurring,
+                }));
 
             const sanitizedExceptions = sanitize(exceptionsRaw).filter((e: any) => e && e.original_event_id && e.original_start_time).map((e: any) => ({...e}));
 
-            const sanitizedExpenses = sanitize(expensesRaw).map((e: any) => ({
-                ...e,
-                amount: Number(e.amount),
-                description: e.description || 'Без описания',
-            }));
+            const sanitizedExpenses = sanitize(expensesRaw)
+                .map((e: any) => ({
+                    ...e,
+                    amount: Number(e.amount),
+                    description: e.description || 'Без описания',
+                }));
 
             const sanitizedStudents = sanitize(studentsRaw).filter((s: any) => s && s.id).map((s: any) => ({
                 ...s,
@@ -195,11 +202,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const seedDatabase = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Создаем демо группы
+            // 1. Создаем группы (по одной, так как API может не поддерживать массив)
             const g1Res = await api.from('groups').insert({ name: 'Kids A1' });
             const g2Res = await api.from('groups').insert({ name: 'Teens B1' });
             
-            // Обработка ответа API (может быть массив или объект)
             const g1Data = Array.isArray(g1Res.data) ? g1Res.data[0] : g1Res.data;
             const g2Data = Array.isArray(g2Res.data) ? g2Res.data[0] : g2Res.data;
 
@@ -207,38 +213,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const g1Id = g1Data.id;
             const g2Id = g2Data.id;
 
-            // Создаем демо учеников
-            const firstNames = ['Александр', 'Мария', 'Дмитрий', 'Елена', 'Иван', 'София', 'Максим', 'Анна'];
-            const lastNames = ['Иванов(а)', 'Петров(а)', 'Сидоров(а)', 'Смирнов(а)', 'Волков(а)'];
+            // 2. Генерируем учеников
+            const firstNames = ['Александр', 'Мария', 'Дмитрий', 'Елена', 'Иван', 'София', 'Максим', 'Анна', 'Артем', 'Виктория'];
+            const lastNames = ['Иванов(а)', 'Петров(а)', 'Сидоров(а)', 'Смирнов(а)', 'Волков(а)', 'Кузнецов(а)', 'Соколов(а)'];
             
-            const studentsToInsert = [];
-            for(let i=0; i<8; i++) {
+            // Вставляем учеников по одному
+            for(let i=0; i<15; i++) {
                 const name = `${firstNames[Math.floor(Math.random()*firstNames.length)]} ${lastNames[Math.floor(Math.random()*lastNames.length)]}`;
-                studentsToInsert.push({
+                await api.from('students').insert({
                     name,
                     parent_name: 'Родитель ' + name.split(' ')[0],
-                    parent_phone1: '+79001234567',
+                    parent_phone1: '+79' + Math.floor(100000000 + Math.random() * 900000000),
                     balance: 0,
                     status: 'active',
                     group_ids: [Math.random() > 0.5 ? g1Id : g2Id]
                 });
             }
             
-            // Если API поддерживает bulk insert, используем его, иначе цикл
-            // Наш текущий api.insert в api.ts пытается отправить массив по одному
-            await api.from('students').insert(studentsToInsert);
-            
-            // Создаем абонементы
-            await api.from('subscription_plans').insert([
-                { name: '8 занятий', price: 6000, discount: 0, lesson_count: 8 },
-                { name: '12 занятий', price: 8000, discount: 500, lesson_count: 12 }
-            ]);
+            // 3. Создаем абонементы
+            await api.from('subscription_plans').insert({ name: '8 занятий', price: 6000, discount: 0, lesson_count: 8 });
+            await api.from('subscription_plans').insert({ name: '12 занятий', price: 8000, discount: 500, lesson_count: 12 });
 
             showNotification('Демо-данные успешно созданы!', 'success');
             await fetchData(false);
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            showNotification('Ошибка при создании демо-данных. Убедитесь, что сервер работает.', 'error');
+            showNotification(`Ошибка при создании данных: ${e.message}`, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -323,10 +323,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     const addStudents = async (students: StudentForCreation[]): Promise<Student[] | null> => {
         setIsSaving(true);
-        const { data } = await api.from('students').insert(students);
+        const results = [];
+        for (const s of students) {
+             const { data } = await api.from('students').insert(s);
+             if (data) results.push(data);
+        }
         await fetchData(false);
         setIsSaving(false);
-        return Array.isArray(data) ? data : [data];
+        return results as Student[];
     };
 
     const updateStudent = async (id: string, updates: Partial<Student>): Promise<Student | null> => {
