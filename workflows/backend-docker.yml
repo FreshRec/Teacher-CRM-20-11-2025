@@ -27,4 +27,4 @@ jobs:
           context: ./backend
           push: true
           # ID реестра прописан напрямую. Если вы пересоздадите реестр, обновите этот ID.
-          tags: cr.yandex/crpsp4c8ej0404ncpmfk/teacher-crm-backend:latest
+          tags: cr.yandex/crplbuqgnl1hqt66g62n/teacher-crm-backend:latest
