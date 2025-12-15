@@ -26,5 +26,5 @@ jobs:
         with:
           context: ./backend
           push: true
-          # Используем ваш ID реестра crpsp4c8ej0404ncpmfk напрямую
+          # ID реестра прописан напрямую. Если вы пересоздадите реестр, обновите этот ID.
           tags: cr.yandex/crpsp4c8ej0404ncpmfk/teacher-crm-backend:latest
