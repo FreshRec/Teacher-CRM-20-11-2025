@@ -58,7 +58,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const { data: { session } } = await api.auth.getSession();
         if (!session?.user) return;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
         const res = await fetch(`${baseUrl}/profiles?id=${session.user.id}`, {
              headers: { 'Authorization': `Bearer ${session.access_token}` }
@@ -112,13 +111,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: eventsRaw }, { data: exceptionsRaw }, { data: expensesRaw },
             ] = results;
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitize = (data: unknown): any[] => Array.isArray(data) ? data : [];
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizedGroups = sanitize(groupsRaw).filter((g: any) => g && g.id && g.name).map((g: any) => ({...g}));
             
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizedPlans = sanitize(plansRaw).filter((p: any) => p && p.id).map((p: any) => ({
                 ...p,
                 name: p.name || 'Без имени',
@@ -127,7 +123,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 lesson_count: typeof p.lesson_count === 'number' ? p.lesson_count : 0,
             }));
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizedStudentSubs = sanitize(studentSubsRaw).map((s: any) => ({
                 ...s,
                 price_paid: Number(s.price_paid),
@@ -135,33 +130,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 assigned_group_id: s.assigned_group_id || null,
             }));
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizedAttendance = sanitize(attendanceRaw).filter((a: any) => a && a.student_id && a.date && a.status).map((a: any) => ({...a}));
             
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizedTransactions = sanitize(transactionsRaw).map((t: any) => ({
                 ...t,
                 amount: Number(t.amount),
                 description: t.description || '',
             }));
             
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizedEvents = sanitize(eventsRaw).filter((e: any) => e && e.id && e.start && e.end && e.title).map((e: any) => ({
                 ...e,
                 is_recurring: !!e.is_recurring,
             }));
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizedExceptions = sanitize(exceptionsRaw).filter((e: any) => e && e.original_event_id && e.original_start_time).map((e: any) => ({...e}));
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizedExpenses = sanitize(expensesRaw).map((e: any) => ({
                 ...e,
                 amount: Number(e.amount),
                 description: e.description || 'Без описания',
             }));
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizedStudents = sanitize(studentsRaw).filter((s: any) => s && s.id).map((s: any) => ({
                 ...s,
                 name: s.name || 'Имя не указано',
@@ -182,12 +171,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setEventExceptions(sanitizedExceptions);
             setExpenses(sanitizedExpenses);
     
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const enrichedStudents = sanitizedStudents.map((s: any) => ({
                 ...s,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 subscriptions: sanitizedStudentSubs.filter((sub: any) => sub.student_id === s.id),
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 transactions: sanitizedTransactions.filter((tx: any) => tx.student_id === s.id),
             }));
     
