@@ -50,28 +50,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }, 5000);
     }, []);
 
-    const seedDatabase = useCallback(async () => {
-        showNotification('Функция генерации демо-данных пока отключена в новой версии бэкенда.', 'error');
-    }, [showNotification]);
-
     const fetchUserProfile = useCallback(async () => {
         const { data: { session } } = await api.auth.getSession();
         if (!session?.user) return;
 
-        const baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
-        const res = await fetch(`${baseUrl}/profiles?id=${session.user.id}`, {
-             headers: { 'Authorization': `Bearer ${session.access_token}` }
-        });
-        const profile = await res.json();
+        try {
+            // Используем api.ts для запроса, чтобы URL брался централизованно
+            const { data: profile, error } = await api.from('profiles').select({ id: session.user.id });
+            
+            if (error) throw error;
 
-        if (profile) {
-            setUserProfile(profile);
-            if (profile.role === 'admin') {
-                const { data: all } = await api.from('profiles').select();
-                if (all) setAllProfiles(all);
+            if (profile) {
+                // api.ts select возвращает данные как есть (объект если передан id, иначе массив)
+                // Типизация any здесь, так как Mock и Real API немного по-разному себя ведут в edge-cases,
+                // но server.js точно вернет объект, если передан id.
+                const profileData = profile as UserProfile;
+                setUserProfile(profileData);
+                
+                if (profileData.role === 'admin') {
+                    const { data: all } = await api.from('profiles').select();
+                    if (all) setAllProfiles(all as UserProfile[]);
+                }
             }
+        } catch (e: any) {
+            console.error("Failed to fetch user profile", e);
+            showNotification(`Не удалось загрузить профиль: ${e.message}`, 'error');
         }
-    }, []);
+    }, [showNotification]);
 
     const updateUserProfile = useCallback(async (id: string, updates: Partial<UserProfile>) => {
         setIsSaving(true);
@@ -187,6 +192,58 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, [fetchUserProfile, showNotification]);
 
+    const seedDatabase = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            // Создаем демо группы
+            const g1Res = await api.from('groups').insert({ name: 'Kids A1' });
+            const g2Res = await api.from('groups').insert({ name: 'Teens B1' });
+            
+            // Обработка ответа API (может быть массив или объект)
+            const g1Data = Array.isArray(g1Res.data) ? g1Res.data[0] : g1Res.data;
+            const g2Data = Array.isArray(g2Res.data) ? g2Res.data[0] : g2Res.data;
+
+            if (!g1Data?.id || !g2Data?.id) throw new Error('Failed to create groups');
+            const g1Id = g1Data.id;
+            const g2Id = g2Data.id;
+
+            // Создаем демо учеников
+            const firstNames = ['Александр', 'Мария', 'Дмитрий', 'Елена', 'Иван', 'София', 'Максим', 'Анна'];
+            const lastNames = ['Иванов(а)', 'Петров(а)', 'Сидоров(а)', 'Смирнов(а)', 'Волков(а)'];
+            
+            const studentsToInsert = [];
+            for(let i=0; i<8; i++) {
+                const name = `${firstNames[Math.floor(Math.random()*firstNames.length)]} ${lastNames[Math.floor(Math.random()*lastNames.length)]}`;
+                studentsToInsert.push({
+                    name,
+                    parent_name: 'Родитель ' + name.split(' ')[0],
+                    parent_phone1: '+79001234567',
+                    balance: 0,
+                    status: 'active',
+                    group_ids: [Math.random() > 0.5 ? g1Id : g2Id]
+                });
+            }
+            
+            // Если API поддерживает bulk insert, используем его, иначе цикл
+            // Наш текущий api.insert в api.ts пытается отправить массив по одному
+            await api.from('students').insert(studentsToInsert);
+            
+            // Создаем абонементы
+            await api.from('subscription_plans').insert([
+                { name: '8 занятий', price: 6000, discount: 0, lesson_count: 8 },
+                { name: '12 занятий', price: 8000, discount: 500, lesson_count: 12 }
+            ]);
+
+            showNotification('Демо-данные успешно созданы!', 'success');
+            await fetchData(false);
+        } catch (e) {
+            console.error(e);
+            showNotification('Ошибка при создании демо-данных. Убедитесь, что сервер работает.', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [showNotification, fetchData]);
+
     const allVisibleEvents = useMemo(() => {
         const allEvents: DisplayEvent[] = [];
         const exceptionsMap: Map<string, ScheduleEventException> = new Map(eventExceptions.map(ex => [`${ex.original_event_id}-${ex.original_start_time}`, ex]));
@@ -266,14 +323,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     const addStudents = async (students: StudentForCreation[]): Promise<Student[] | null> => {
         setIsSaving(true);
-        const results = [];
-        for (const s of students) {
-             const { data } = await api.from('students').insert(s);
-             if (data) results.push(data);
-        }
+        const { data } = await api.from('students').insert(students);
         await fetchData(false);
         setIsSaving(false);
-        return results as Student[];
+        return Array.isArray(data) ? data : [data];
     };
 
     const updateStudent = async (id: string, updates: Partial<Student>): Promise<Student | null> => {
