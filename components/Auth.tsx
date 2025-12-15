@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 
 // Получаем URL для отображения (чтобы вы видели, куда идет запрос)
@@ -20,6 +20,12 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
+
+  // Проверка: сайт не локальный, а API указывает на localhost
+  const isProductionButUsingLocalhost = typeof window !== 'undefined' && 
+      window.location.hostname !== 'localhost' && 
+      window.location.hostname !== '127.0.0.1' && 
+      API_URL.includes('localhost');
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,9 +68,33 @@ export default function Auth() {
     <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
         <h1 className="text-2xl font-bold text-indigo-600 mb-2 text-center">Teacher's CRM</h1>
-        <div className="text-xs text-center text-gray-400 mb-6 font-mono bg-gray-50 p-1 rounded">
-            Server: {API_URL}
+        
+        <div className="text-xs text-center text-gray-500 mb-6 font-mono bg-gray-50 p-2 rounded break-all border border-gray-200">
+            Сервер API: {API_URL}
         </div>
+
+        {isProductionButUsingLocalhost && (
+             <div className="mb-6 p-4 rounded text-sm bg-yellow-50 text-yellow-900 border border-yellow-200 shadow-sm">
+                <h3 className="font-bold mb-2 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                    Требуется настройка
+                </h3>
+                <p className="mb-2">
+                    Сайт открыт в интернете, но пытается подключиться к <code>localhost</code>.
+                </p>
+                <div className="bg-white p-2 rounded border border-yellow-100 mb-2">
+                    <strong>Что делать (на GitHub):</strong>
+                    <ol className="list-decimal list-inside ml-1 mt-1 space-y-1 text-xs">
+                        <li>Откройте этот репозиторий на GitHub</li>
+                        <li>Перейдите: <b>Settings</b> &rarr; <b>Secrets and variables</b> &rarr; <b>Actions</b></li>
+                        <li>Нажмите <b>New repository secret</b></li>
+                        <li>Name: <code>VITE_API_URL</code></li>
+                        <li>Value: Ссылка на ваш контейнер (<code>https://d5...</code>)</li>
+                        <li>Сделайте <code>git push</code> или перезапустите Action</li>
+                    </ol>
+                </div>
+             </div>
+        )}
         
         <p className="text-gray-600 mb-6 text-center text-lg">
             {isSignUp ? 'Регистрация' : 'Вход в систему'}
