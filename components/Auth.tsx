@@ -115,7 +115,7 @@ export default function Auth() {
                     >
                         Сохранить и подключиться
                     </button>
-                    <p className="text-[10px] text-gray-500 mt-1">Ссылку можно найти в Yandex Cloud Console -> Serverless Containers.</p>
+                    <p className="text-[10px] text-gray-500 mt-1">Ссылку можно найти в Yandex Cloud Console &rarr; Serverless Containers.</p>
                 </div>
 
                 <div className="text-xs text-gray-600">
