@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { api } from '../services/api';
+import { api, getApiUrl } from '../services/api';
 
-// Получаем URL для отображения (чтобы вы видели, куда идет запрос)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
+// Получаем текущий активный URL (из env или localStorage)
+const API_URL = getApiUrl();
 
 export function UpdatePassword({ onSuccess }: { onSuccess: () => void }) {
   return (
@@ -20,6 +19,9 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
+  
+  // Состояние для ручного ввода URL
+  const [manualUrl, setManualUrl] = useState('');
 
   // Проверка: сайт не локальный, а API указывает на localhost
   const isProductionButUsingLocalhost = typeof window !== 'undefined' && 
@@ -64,6 +66,21 @@ export default function Auth() {
     }
   };
 
+  const saveManualUrl = () => {
+      if (!manualUrl) return;
+      let url = manualUrl.trim();
+      // Убираем слеш в конце, если есть
+      if (url.endsWith('/')) url = url.slice(0, -1);
+      
+      localStorage.setItem('teacher_crm_api_url', url);
+      window.location.reload();
+  };
+  
+  const resetManualUrl = () => {
+      localStorage.removeItem('teacher_crm_api_url');
+      window.location.reload();
+  };
+
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
@@ -79,20 +96,48 @@ export default function Auth() {
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                     Требуется настройка
                 </h3>
-                <p className="mb-2">
-                    Сайт открыт в интернете, но пытается подключиться к <code>localhost</code>.
+                <p className="mb-3">
+                    Сайт не видит сервер (ссылается на localhost).
                 </p>
-                <div className="bg-white p-2 rounded border border-yellow-100 mb-2">
-                    <strong>Что делать (на GitHub):</strong>
-                    <ol className="list-decimal list-inside ml-1 mt-1 space-y-1 text-xs">
-                        <li>Откройте этот репозиторий на GitHub</li>
-                        <li>Перейдите: <b>Settings</b> &rarr; <b>Secrets and variables</b> &rarr; <b>Actions</b></li>
-                        <li>Нажмите <b>New repository secret</b></li>
-                        <li>Name: <code>VITE_API_URL</code></li>
-                        <li>Value: Ссылка на ваш контейнер (<code>https://d5...</code>)</li>
-                        <li>Сделайте <code>git push</code> или перезапустите Action</li>
-                    </ol>
+                
+                <div className="bg-white p-3 rounded border border-yellow-200 mb-3">
+                    <label className="block text-xs font-bold mb-1 text-gray-700">Быстрое решение (введите адрес контейнера):</label>
+                    <input 
+                        type="text" 
+                        placeholder="https://d5...yandexcloud.net" 
+                        value={manualUrl}
+                        onChange={e => setManualUrl(e.target.value)}
+                        className="w-full p-2 text-sm border border-gray-300 rounded mb-2"
+                    />
+                    <button 
+                        onClick={saveManualUrl}
+                        className="w-full py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 font-bold"
+                    >
+                        Сохранить и подключиться
+                    </button>
+                    <p className="text-[10px] text-gray-500 mt-1">Ссылку можно найти в Yandex Cloud Console -> Serverless Containers.</p>
                 </div>
+
+                <div className="text-xs text-gray-600">
+                    <details>
+                        <summary className="cursor-pointer hover:text-indigo-600">Инструкция для GitHub (правильный способ)</summary>
+                        <ol className="list-decimal list-inside ml-1 mt-2 space-y-1">
+                            <li>Откройте репозиторий на GitHub</li>
+                            <li><b>Settings</b> &rarr; <b>Secrets</b> &rarr; <b>Actions</b></li>
+                            <li>Добавьте <code>VITE_API_URL</code> со ссылкой на контейнер</li>
+                            <li>Перезапустите Action (сделайте push)</li>
+                        </ol>
+                    </details>
+                </div>
+             </div>
+        )}
+        
+        {/* Кнопка сброса, если пользователь ввел неправильный URL вручную */}
+        {typeof localStorage !== 'undefined' && localStorage.getItem('teacher_crm_api_url') && (
+             <div className="mb-4 text-center">
+                 <button onClick={resetManualUrl} className="text-xs text-red-500 hover:underline">
+                     Сбросить ручную настройку сервера
+                 </button>
              </div>
         )}
         
