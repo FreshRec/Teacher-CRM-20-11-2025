@@ -38,8 +38,9 @@ export default function Auth() {
           } else {
               setServerStatus({ error: `Ошибка ${res.status}: ${res.statusText}` });
           }
-      } catch (e: any) {
-          setServerStatus({ error: e.message });
+      } catch (e) {
+          const errorMessage = e instanceof Error ? e.message : 'Unknown connection error';
+          setServerStatus({ error: errorMessage });
       }
   };
   
