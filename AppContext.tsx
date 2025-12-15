@@ -1,4 +1,3 @@
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { api } from './services/api';
@@ -546,4 +545,3 @@ export const useAppContext = (): IAppContext => {
     }
     return context;
 };
-
