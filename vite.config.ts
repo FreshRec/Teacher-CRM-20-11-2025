@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   server: {
-    port: 3000,
-    strictPort: true,
+    // Порт по умолчанию (5173), чтобы не конфликтовать с бэкендом (3000)
+    strictPort: false,
     host: true,
   }
 })
