@@ -13,6 +13,17 @@ export interface UserPermissions {
     canManageUsers: boolean;
 }
 
+export interface User {
+    id: string;
+    email?: string;
+    role?: string;
+}
+
+export interface Session {
+    access_token: string;
+    user: User | null;
+}
+
 export interface UserProfile {
     id: string;
     email: string;
@@ -193,3 +204,4 @@ export interface IAppContext {
     updateUserProfile: (id: string, updates: Partial<UserProfile>) => Promise<void>;
     seedDatabase: () => Promise<void>;
 }
+
