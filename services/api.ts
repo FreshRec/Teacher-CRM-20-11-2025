@@ -102,7 +102,7 @@ export const api = {
                     return { error: res.ok ? null : new Error('Delete failed') };
                 }
             }),
-            upsert: async (data: any, _config?: any) => {
+            upsert: async (data: any) => {
                  // Реализуем как POST для упрощения, сервер должен обрабатывать ON CONFLICT
                  // В server.js это реализовано для attendance и exceptions
                 const payload = Array.isArray(data) ? data[0] : data; 
