@@ -1,3 +1,5 @@
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { api } from './services/api';
 import { 
@@ -8,46 +10,11 @@ import {
     ExpenseForCreation,
     IAppContext,
     DisplayEvent,
-    UserProfile,
-    UserPermissions
+    UserProfile
 } from './types';
 import { notificationService } from './services/notificationService';
-import { DEFAULT_LESSON_PRICE } from './constants';
 
 const AppContext = createContext<IAppContext | null>(null);
-
-const getOccurrenceKey = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
-
-const defaultPermissions: UserPermissions = {
-    canViewDashboard: true,
-    canViewStudents: true,
-    canViewJournal: true,
-    canViewGroups: true,
-    canViewSubscriptions: true,
-    canViewSchedule: true,
-    canViewFinance: false,
-    canViewArchive: false,
-    canManageUsers: false,
-};
-
-const adminPermissions: UserPermissions = {
-    canViewDashboard: true,
-    canViewStudents: true,
-    canViewJournal: true,
-    canViewGroups: true,
-    canViewSubscriptions: true,
-    canViewSchedule: true,
-    canViewFinance: true,
-    canViewArchive: true,
-    canManageUsers: true,
-};
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -66,6 +33,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [notifications, setNotifications] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+
+    const getOccurrenceKey = useCallback((date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }, []);
 
     const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
         const id = Date.now();
@@ -136,7 +112,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: eventsRaw }, { data: exceptionsRaw }, { data: expensesRaw },
             ] = results;
 
-            const sanitize = (data: unknown): any[] => Array.isArray(data) ? data as any[] : [];
+            const sanitize = (data: unknown): any[] => Array.isArray(data) ? data : [];
 
             const sanitizedGroups = sanitize(groupsRaw).filter((g: any) => g && g.id && g.name).map((g: any) => ({...g}));
             
@@ -215,7 +191,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } finally {
              if (isInitialLoad) setIsLoading(false);
         }
-    }, [seedDatabase, showNotification, fetchUserProfile]);
+    }, [fetchUserProfile, showNotification]);
 
     const allVisibleEvents = useMemo(() => {
         const allEvents: DisplayEvent[] = [];
@@ -270,7 +246,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         });
         return allEvents;
-    }, [scheduleEvents, eventExceptions]);
+    }, [scheduleEvents, eventExceptions, getOccurrenceKey]);
 
     useEffect(() => {
         fetchData(true);
@@ -453,7 +429,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
          await fetchData(false);
     };
     
-    const setAttendanceRecord = async (record: AttendanceForCreation, groupId: string): Promise<void> => {
+    const setAttendanceRecord = async (record: AttendanceForCreation, _groupId: string): Promise<void> => {
         setIsSaving(true);
         const { error } = await api.from('attendance').upsert({ ...record, grade: record.grade === undefined ? null : record.grade });
         if (error) showNotification(`Ошибка: ${error.message}`, 'error');
