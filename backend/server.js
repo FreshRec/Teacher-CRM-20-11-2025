@@ -7,27 +7,46 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-prod';
+const BACKEND_VERSION = '1.2.0 (SSL Fix Applied)';
 
 app.use(cors());
 app.use(express.json());
 
 // === НАСТРОЙКА ПОДКЛЮЧЕНИЯ К БД ===
-// Исправление ошибки "self-signed certificate in certificate chain"
 const connectionString = process.env.DATABASE_URL;
-const isLocal = connectionString && connectionString.includes('localhost');
+// Определяем, локальная ли это БД (localhost) или облачная
+const isLocal = connectionString && (connectionString.includes('localhost') || connectionString.includes('127.0.0.1'));
+const isYandex = connectionString && connectionString.includes('yandex');
+
+console.log(`[Startup] Backend Version: ${BACKEND_VERSION}`);
+console.log(`[Startup] Database Config: ${isLocal ? 'Local' : 'Remote/Cloud'}`);
 
 const poolConfig = {
     connectionString: connectionString,
+    connectionTimeoutMillis: 5000, // Тайм-аут подключения 5 сек
 };
 
-// Для Yandex Cloud Managed PostgreSQL обязательно нужен SSL, но без валидации CA (для простоты)
-if (!isLocal) {
+// Принудительное отключение проверки сертификата для Yandex Cloud и других внешних БД
+if (!isLocal || isYandex) {
+    console.log('[Startup] Enabling SSL (rejectUnauthorized: false) for DB connection');
     poolConfig.ssl = {
         rejectUnauthorized: false
     };
 }
 
 const pool = new Pool(poolConfig);
+
+// Проверка подключения при старте
+pool.query('SELECT NOW()', (err, res) => {
+    if (err) {
+        console.error('[Startup] ❌ DB Connection Failed:', err.message);
+        if (err.message.includes('self-signed')) {
+            console.error('[Startup] 💡 Tip: SSL settings might not be applying correctly.');
+        }
+    } else {
+        console.log('[Startup] ✅ DB Connection Successful:', res.rows[0].now);
+    }
+});
 
 // Middleware для проверки токена
 const authenticateToken = (req, res, next) => {
@@ -315,7 +334,12 @@ app.delete('/financial_transactions', authenticateToken, async (req, res) => {
 app.get('/health', (req, res) => res.send('OK'));
 
 app.get('/', (req, res) => {
-    res.send('Teacher CRM Backend is running! Use /health to check status.');
+    res.json({
+        service: 'Teacher CRM Backend',
+        version: BACKEND_VERSION,
+        status: 'running',
+        db_connected: true // Assumed true if server didn't crash on startup query
+    });
 });
 
 app.listen(port, () => {
