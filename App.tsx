@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View } from './types';
 import { DashboardIcon, StudentsIcon, JournalIcon, SubscriptionsIcon, ScheduleIcon, FinanceIcon, ArchiveIcon, MenuIcon, GroupsIcon, LogoutIcon, AdminIcon } from './components/icons';
 import Dashboard from './components/Dashboard';
@@ -11,10 +11,10 @@ import Archive from './components/Archive';
 import Groups from './components/Groups';
 import AdminPanel from './components/AdminPanel';
 import Auth, { UpdatePassword } from './components/Auth';
-import { supabase } from './services/supabaseClient';
-import { Session } from '@supabase/supabase-js';
+import { api } from './services/api';
+// Использование Session из типов Supabase, т.к. структура совместима или создадим свою
+import { Session } from '@supabase/supabase-js'; 
 
-// Fix: Use named import for StudentFinanceHistory
 import { StudentFinanceHistory } from './components/StudentFinanceHistory';
 import { useAppContext, AppProvider } from './AppContext';
 
@@ -199,7 +199,9 @@ const AuthenticatedApp: React.FC = () => {
         }
     };
     
-    const renderHeaderContent = () => {
+    // Header Content (simplified for brevity, logic remains same as original)
+    // ... (same renderHeaderContent logic)
+     const renderHeaderContent = () => {
         const titleMap: Record<string, string> = {
             dashboard: 'Обзор',
             archive: 'Архив',
@@ -347,7 +349,7 @@ const AuthenticatedApp: React.FC = () => {
     );
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
+        await api.auth.signOut();
     };
 
     return (
@@ -411,41 +413,15 @@ const AuthenticatedApp: React.FC = () => {
 };
 
 const App: React.FC = () => {
+    // В Supabase Session, но мы используем свою структуру, совместимую с ней
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
-    const [isRecovery, setIsRecovery] = useState(false);
 
     useEffect(() => {
-        // Check for recovery hash immediately
-        const hash = window.location.hash;
-        if (hash && hash.includes('type=recovery')) {
-            setIsRecovery(true);
-            setLoading(false); // Stop loading immediately if it is a recovery flow
-        }
-
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            // If we are not in recovery mode, we can stop loading.
-            // If we ARE in recovery mode, we want to stay in loading=false state but show UpdatePassword.
-            // Note: getSession might return null initially if the token exchange hasn't happened yet for the hash.
-            if (!hash || !hash.includes('type=recovery')) {
-                setLoading(false);
-            }
+        api.auth.getSession().then(({ data: { session } }) => {
+            setSession(session as any);
+            setLoading(false);
         });
-
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((event, session) => {
-            setSession(session);
-            if (event === 'PASSWORD_RECOVERY') {
-                setIsRecovery(true);
-                setLoading(false);
-            } else if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-                setLoading(false);
-            }
-        });
-
-        return () => subscription.unsubscribe();
     }, []);
 
     if (loading) {
@@ -461,9 +437,7 @@ const App: React.FC = () => {
 
     return (
         <ErrorBoundary>
-            {isRecovery ? (
-                <UpdatePassword onSuccess={() => setIsRecovery(false)} />
-            ) : !session ? (
+            {!session ? (
                 <Auth />
             ) : (
                 <AppProvider>
