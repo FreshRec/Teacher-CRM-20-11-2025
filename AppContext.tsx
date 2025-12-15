@@ -429,7 +429,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
          await fetchData(false);
     };
     
-    const setAttendanceRecord = async (record: AttendanceForCreation, _groupId: string): Promise<void> => {
+    const setAttendanceRecord = async (record: AttendanceForCreation): Promise<void> => {
         setIsSaving(true);
         const { error } = await api.from('attendance').upsert({ ...record, grade: record.grade === undefined ? null : record.grade });
         if (error) showNotification(`Ошибка: ${error.message}`, 'error');
@@ -538,6 +538,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAppContext = (): IAppContext => {
     const context = useContext(AppContext);
     if (context === null) {
