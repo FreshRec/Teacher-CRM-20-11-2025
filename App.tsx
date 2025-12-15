@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Session } from './types';
 import { DashboardIcon, StudentsIcon, JournalIcon, SubscriptionsIcon, ScheduleIcon, FinanceIcon, ArchiveIcon, MenuIcon, GroupsIcon, LogoutIcon, AdminIcon } from './components/icons';
@@ -446,4 +445,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-
