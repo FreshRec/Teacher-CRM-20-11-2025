@@ -11,7 +11,7 @@ import Finance from './components/Finance';
 import Archive from './components/Archive';
 import Groups from './components/Groups';
 import AdminPanel from './components/AdminPanel';
-import Auth, { UpdatePassword } from './components/Auth';
+import Auth from './components/Auth';
 import { api } from './services/api';
 import { StudentFinanceHistory } from './components/StudentFinanceHistory';
 import { useAppContext, AppProvider } from './AppContext';
@@ -410,7 +410,7 @@ const AuthenticatedApp: React.FC = () => {
 };
 
 const App: React.FC = () => {
-    // Session используется свой локальный
+    // В Supabase Session, но мы используем свою структуру, совместимую с ней
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -446,3 +446,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+
