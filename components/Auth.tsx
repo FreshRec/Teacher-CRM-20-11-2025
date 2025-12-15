@@ -61,10 +61,14 @@ export default function Auth() {
         }
         
         // Обработка ошибки DNS (база данных недоступна)
-        if (typeof errorMessage === 'string' && 
-           (errorMessage.includes('getaddrinfo ENOTFOUND') || errorMessage.includes('getaddrinfo EAI_AGAIN')) && 
-           errorMessage.includes('mdb.yandexcloud.net')) {
-            errorMessage = `Ошибка подключения к Базе Данных (DNS).\n\nСервер не видит хост базы данных.\n\nКАК ИСПРАВИТЬ:\nВариант 1 (через Хосты - надежнее):\n1. Yandex Cloud -> PostgreSQL -> Выберите кластер.\n2. Слева меню "Хосты" (Hosts).\n3. Нажмите "Изменить" (карандаш/три точки) у хоста.\n4. Включите "Публичный доступ".\n\nВариант 2 (через Настройки):\n1. Кнопка "Изменить кластер" вверху.\n2. Блок "Дополнительные настройки" (развернуть).\n3. Галочка "Публичный доступ".`;
+        if (typeof errorMessage === 'string') {
+            if ((errorMessage.includes('getaddrinfo ENOTFOUND') || errorMessage.includes('getaddrinfo EAI_AGAIN')) && 
+               errorMessage.includes('mdb.yandexcloud.net')) {
+                errorMessage = `Ошибка подключения к Базе Данных (DNS).\n\nСервер не видит хост базы данных.\n\nКАК ИСПРАВИТЬ:\n1. Yandex Cloud -> Managed Service for PostgreSQL -> Кластер.\n2. Меню "Хосты" (Hosts).\n3. Нажмите "Изменить" у хоста.\n4. Включите "Публичный доступ".`;
+            } 
+            else if (errorMessage.includes('self-signed certificate in certificate chain')) {
+                errorMessage = `Ошибка SSL сертификата Базы Данных.\n\nБэкенд не доверяет сертификату Yandex Cloud.\n\nРЕШЕНИЕ:\nЯ уже обновил код сервера, чтобы исправить это.\nВам нужно сделать новый Deploy (git push), чтобы изменения применились на сервере.`;
+            }
         }
         
         setMessage({ text: errorMessage, type: 'error' });
@@ -76,7 +80,6 @@ export default function Auth() {
   const saveManualUrl = () => {
       if (!manualUrl) return;
       let url = manualUrl.trim();
-      // Убираем слеш в конце, если есть
       if (url.endsWith('/')) url = url.slice(0, -1);
       
       localStorage.setItem('teacher_crm_api_url', url);
@@ -139,7 +142,6 @@ export default function Auth() {
              </div>
         )}
         
-        {/* Кнопка сброса, если пользователь ввел неправильный URL вручную */}
         {typeof localStorage !== 'undefined' && localStorage.getItem('teacher_crm_api_url') && (
              <div className="mb-4 text-center">
                  <button onClick={resetManualUrl} className="text-xs text-red-500 hover:underline">
