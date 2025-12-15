@@ -33,6 +33,7 @@ export const api = {
                 return { data: session, error: null };
             } catch (e: any) {
                 console.error('Auth Error:', e);
+                // Прокидываем ошибку fetch (Network Error) как есть
                 return { error: e };
             }
         },
