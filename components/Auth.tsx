@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api, getApiUrl } from '../services/api';
 
 // Получаем текущий активный URL (из env или localStorage)
@@ -20,7 +20,7 @@ export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
   
-  // Состояние для ручного ввода URL
+  const [serverStatus, setServerStatus] = useState<{ version?: string, status?: string, error?: string } | null>(null);
   const [manualUrl, setManualUrl] = useState('');
 
   // Проверка: сайт не локальный, а API указывает на localhost
@@ -28,6 +28,25 @@ export default function Auth() {
       window.location.hostname !== 'localhost' && 
       window.location.hostname !== '127.0.0.1' && 
       API_URL.includes('localhost');
+
+  const checkServer = async () => {
+      try {
+          const res = await fetch(`${API_URL}/`);
+          if (res.ok) {
+              const data = await res.json();
+              setServerStatus(data);
+          } else {
+              setServerStatus({ error: `Ошибка ${res.status}: ${res.statusText}` });
+          }
+      } catch (e: any) {
+          setServerStatus({ error: e.message });
+      }
+  };
+  
+  useEffect(() => {
+      // Автоматическая проверка при загрузке, чтобы пользователь сразу видел, жив ли сервер
+      checkServer();
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +86,7 @@ export default function Auth() {
                 errorMessage = `Ошибка подключения к Базе Данных (DNS).\n\nСервер не видит хост базы данных.\n\nКАК ИСПРАВИТЬ:\n1. Yandex Cloud -> Managed Service for PostgreSQL -> Кластер.\n2. Меню "Хосты" (Hosts).\n3. Нажмите "Изменить" у хоста.\n4. Включите "Публичный доступ".`;
             } 
             else if (errorMessage.includes('self-signed certificate in certificate chain')) {
-                errorMessage = `Ошибка SSL сертификата Базы Данных.\n\nБэкенд не доверяет сертификату Yandex Cloud.\n\nРЕШЕНИЕ:\nЯ уже обновил код сервера, чтобы исправить это.\nВам нужно сделать новый Deploy (git push), чтобы изменения применились на сервере.`;
+                errorMessage = `Ошибка SSL сертификата Базы Данных.\n\nБэкенд не доверяет сертификату Yandex Cloud.\n\nРЕШЕНИЕ:\nОбновление кода (SSL Fix) уже загружено в репозиторий.\n\nВАЖНО: Вам нужно запустить новый деплой (GitHub Actions), чтобы обновить сервер в облаке.\n\nТекущая версия сервера: ${serverStatus?.version || 'Неизвестно (старая)'}`;
             }
         }
         
@@ -96,8 +115,26 @@ export default function Auth() {
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
         <h1 className="text-2xl font-bold text-indigo-600 mb-2 text-center">Teacher's CRM</h1>
         
-        <div className="text-xs text-center text-gray-500 mb-6 font-mono bg-gray-50 p-2 rounded break-all border border-gray-200">
+        <div className="text-xs text-center text-gray-500 mb-2 font-mono bg-gray-50 p-2 rounded break-all border border-gray-200">
             Сервер API: {API_URL}
+        </div>
+        
+        {/* Индикатор статуса сервера */}
+        <div className="mb-6 text-center">
+             {serverStatus?.version ? (
+                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                     ✅ Сервер доступен (v{serverStatus.version})
+                 </span>
+             ) : serverStatus?.error ? (
+                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800" title={serverStatus.error}>
+                     ❌ Сервер недоступен
+                 </span>
+             ) : (
+                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                     ⏳ Проверка связи...
+                 </span>
+             )}
+             <button onClick={checkServer} className="ml-2 text-xs text-indigo-600 underline">Обновить</button>
         </div>
 
         {isProductionButUsingLocalhost && (
@@ -126,18 +163,6 @@ export default function Auth() {
                         Сохранить и подключиться
                     </button>
                     <p className="text-[10px] text-gray-500 mt-1">Ссылку можно найти в Yandex Cloud Console &rarr; Serverless Containers.</p>
-                </div>
-
-                <div className="text-xs text-gray-600">
-                    <details>
-                        <summary className="cursor-pointer hover:text-indigo-600">Инструкция для GitHub (правильный способ)</summary>
-                        <ol className="list-decimal list-inside ml-1 mt-2 space-y-1">
-                            <li>Откройте репозиторий на GitHub</li>
-                            <li><b>Settings</b> &rarr; <b>Secrets</b> &rarr; <b>Actions</b></li>
-                            <li>Добавьте <code>VITE_API_URL</code> со ссылкой на контейнер</li>
-                            <li>Перезапустите Action (сделайте push)</li>
-                        </ol>
-                    </details>
                 </div>
              </div>
         )}
