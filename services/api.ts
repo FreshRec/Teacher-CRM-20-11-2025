@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Укажите здесь URL вашего контейнера из Yandex Cloud
-// Например: https://d5dk...yandex.net
+// Реальный API клиент для взаимодействия с backend/server.js
+
+// Получаем URL из переменной окружения или используем localhost по умолчанию
 const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
+
+// Логируем адрес API для отладки (видно в консоли браузера)
+console.log('API Client initialized. Target URL:', API_URL);
 
 const getHeaders = () => {
     const session = localStorage.getItem('teacher_crm_session');
@@ -22,12 +26,13 @@ export const api = {
                     body: JSON.stringify(data)
                 });
                 if (!res.ok) {
-                     const err = await res.json().catch(() => ({ error: 'Registration failed' }));
+                     const err = await res.json();
                      return { error: new Error(err.error || 'Registration failed') };
                 }
                 const session = await res.json();
                 return { data: session, error: null };
             } catch (e: any) {
+                console.error('Auth Error:', e);
                 return { error: e };
             }
         },
@@ -39,13 +44,14 @@ export const api = {
                     body: JSON.stringify(data)
                 });
                 if (!res.ok) {
-                     const err = await res.json().catch(() => ({ error: 'Login failed' }));
+                     const err = await res.json();
                      return { error: new Error(err.error || 'Login failed') };
                 }
                 const responseData = await res.json();
                 localStorage.setItem('teacher_crm_session', JSON.stringify(responseData.session));
                 return { data: responseData, error: null };
             } catch (e: any) {
+                console.error('Auth Error:', e);
                 return { error: e };
             }
         },
@@ -56,19 +62,30 @@ export const api = {
         async getSession() {
             const sessionStr = localStorage.getItem('teacher_crm_session');
             if (!sessionStr) return { data: { session: null } };
-            return { data: { session: JSON.parse(sessionStr) } };
+            try {
+                return { data: { session: JSON.parse(sessionStr) } };
+            } catch (e) {
+                localStorage.removeItem('teacher_crm_session');
+                return { data: { session: null } };
+            }
         }
     },
     from(table: string) {
         return {
-            select: async () => {
+            select: async (queryParams?: Record<string, string>) => {
                 try {
-                    const res = await fetch(`${API_URL}/${table}`, { headers: getHeaders() });
-                    if (!res.ok) throw new Error(`Status ${res.status}`);
+                    let url = `${API_URL}/${table}`;
+                    if (queryParams) {
+                        const params = new URLSearchParams(queryParams);
+                        url += `?${params.toString()}`;
+                    }
+                    
+                    const res = await fetch(url, { headers: getHeaders() });
+                    if (!res.ok) throw new Error(`Fetch error ${res.status}: ${res.statusText}`);
                     const data = await res.json();
                     return { data, error: null };
                 } catch (e: any) {
-                    console.error(`Fetch error for ${table}:`, e);
+                    console.error(`Select Error (${table}):`, e);
                     return { data: null, error: e };
                 }
             },
@@ -81,13 +98,14 @@ export const api = {
                         body: JSON.stringify(payload)
                     });
                     if (!res.ok) {
-                        const err = await res.json().catch(() => ({ error: `Insert failed: ${res.status}` }));
-                        return { data: null, error: new Error(err.error) };
+                        const err = await res.json().catch(() => ({ error: res.statusText }));
+                        throw new Error(err.error || 'Insert failed');
                     }
                     const responseData = await res.json();
                     return { data: Array.isArray(data) ? [responseData] : responseData, error: null };
                 } catch (e: any) {
-                     return { data: null, error: e };
+                    console.error(`Insert Error (${table}):`, e);
+                    return { data: null, error: e };
                 }
             },
             update: (updates: any) => ({
@@ -98,13 +116,11 @@ export const api = {
                             headers: getHeaders(),
                             body: JSON.stringify(updates)
                         });
-                         if (!res.ok) {
-                            const err = await res.json().catch(() => ({ error: `Update failed: ${res.status}` }));
-                            return { data: null, error: new Error(err.error) };
-                        }
+                        if (!res.ok) throw new Error('Update failed');
                         const data = await res.json();
                         return { data, error: null };
                     } catch (e: any) {
+                         console.error(`Update Error (${table}):`, e);
                         return { data: null, error: e };
                     }
                 }
@@ -113,30 +129,24 @@ export const api = {
                 eq: async (_col: string, val: string) => {
                     try {
                         const res = await fetch(`${API_URL}/${table}?id=${val}`, { method: 'DELETE', headers: getHeaders() });
-                        if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+                        if (!res.ok) throw new Error('Delete failed');
                         return { error: null };
-                    } catch (e: any) {
-                        return { error: e };
-                    }
+                    } catch (e: any) { return { error: e }; }
                 },
                 in: async (_col: string, vals: string[]) => {
                     try {
                         const res = await fetch(`${API_URL}/${table}?ids=${vals.join(',')}`, { method: 'DELETE', headers: getHeaders() });
-                        if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+                        if (!res.ok) throw new Error('Delete failed');
                         return { error: null };
-                    } catch (e: any) {
-                        return { error: e };
-                    }
+                    } catch (e: any) { return { error: e }; }
                 },
                 match: async (query: any) => {
                     try {
                         const params = new URLSearchParams(query);
                         const res = await fetch(`${API_URL}/${table}?${params.toString()}`, { method: 'DELETE', headers: getHeaders() });
-                        if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+                        if (!res.ok) throw new Error('Delete failed');
                         return { error: null };
-                    } catch (e: any) {
-                        return { error: e };
-                    }
+                    } catch (e: any) { return { error: e }; }
                 }
             }),
             upsert: async (data: any) => {
@@ -147,10 +157,7 @@ export const api = {
                         headers: getHeaders(),
                         body: JSON.stringify(payload)
                     });
-                    if (!res.ok) {
-                         const err = await res.json().catch(() => ({ error: `Upsert failed: ${res.status}` }));
-                         return { data: null, error: new Error(err.error) };
-                    }
+                    if (!res.ok) throw new Error('Upsert failed');
                     const responseData = await res.json();
                     return { data: responseData, error: null };
                 } catch (e: any) {
