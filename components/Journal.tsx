@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { useAppContext } from '../AppContext';
 import { Student, Attendance, StudentForCreation } from '../types';
@@ -16,8 +17,7 @@ const JournalCell: React.FC<{
     student: Student;
     date: Date;
     record: Attendance | undefined;
-    selectedGroupId: string;
-}> = React.memo(({ student, date, record, selectedGroupId }) => {
+}> = React.memo(({ student, date, record }) => {
     const context = useAppContext();
     const longPressTimer = useRef<number | null>(null);
     const touchStartRef = useRef<{ x: number, y: number } | null>(null);
@@ -46,7 +46,7 @@ const JournalCell: React.FC<{
                 status: nextStatus,
                 // Keep grade only if present, otherwise clear it (pass null)
                 grade: nextStatus === 'present' ? record?.grade : null,
-            }, selectedGroupId);
+            });
         }
     };
     
@@ -57,7 +57,7 @@ const JournalCell: React.FC<{
             date: dateStr,
             status: 'present', 
             grade: grade ?? null // Pass null if undefined to clear the grade
-        }, selectedGroupId);
+        });
         setGradeModalOpen(false);
     };
 
@@ -428,7 +428,6 @@ const Journal: React.FC<JournalProps> = ({ currentDate, selectedGroupId, isDeskt
                                         student={student}
                                         date={day}
                                         record={record}
-                                        selectedGroupId={selectedGroupId}
                                     />
                                 })}
                                 <td className="p-2 text-center border border-gray-400 text-base md:text-lg font-bold text-gray-700 bg-white group-hover/row:bg-indigo-50">{studentFinancials.get(student.id)?.lessons || 'N/A'}</td>
