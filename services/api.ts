@@ -15,32 +15,39 @@ const getHeaders = () => {
 export const api = {
     auth: {
         async signUp(data: any) {
-            const res = await fetch(`${API_URL}/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) {
-                 const err = await res.json();
-                 return { error: new Error(err.error || 'Registration failed') };
+            try {
+                const res = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) {
+                     const err = await res.json().catch(() => ({ error: 'Registration failed' }));
+                     return { error: new Error(err.error || 'Registration failed') };
+                }
+                const session = await res.json();
+                return { data: session, error: null };
+            } catch (e: any) {
+                return { error: e };
             }
-            const session = await res.json();
-            return { data: session, error: null };
         },
         async signInWithPassword(data: any) {
-            const res = await fetch(`${API_URL}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) {
-                 const err = await res.json();
-                 return { error: new Error(err.error || 'Login failed') };
+            try {
+                const res = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) {
+                     const err = await res.json().catch(() => ({ error: 'Login failed' }));
+                     return { error: new Error(err.error || 'Login failed') };
+                }
+                const responseData = await res.json();
+                localStorage.setItem('teacher_crm_session', JSON.stringify(responseData.session));
+                return { data: responseData, error: null };
+            } catch (e: any) {
+                return { error: e };
             }
-            const responseData = await res.json();
-            // Сохраняем сессию как Supabase, чтобы меньше ломать логику App.tsx, но лучше свое
-            localStorage.setItem('teacher_crm_session', JSON.stringify(responseData.session));
-            return { data: responseData, error: null };
         },
         async signOut() {
             localStorage.removeItem('teacher_crm_session');
@@ -55,64 +62,100 @@ export const api = {
     from(table: string) {
         return {
             select: async () => {
-                const res = await fetch(`${API_URL}/${table}`, { headers: getHeaders() });
-                const data = await res.json();
-                return { data, error: res.ok ? null : new Error('Fetch failed') };
+                try {
+                    const res = await fetch(`${API_URL}/${table}`, { headers: getHeaders() });
+                    if (!res.ok) throw new Error(`Status ${res.status}`);
+                    const data = await res.json();
+                    return { data, error: null };
+                } catch (e: any) {
+                    console.error(`Fetch error for ${table}:`, e);
+                    return { data: null, error: e };
+                }
             },
             insert: async (data: any) => {
-                // Если массив, отправляем по одному (упрощение, т.к. бэкенд в примере принимает объект)
-                // Или допилить бэкенд на прием массива.
-                // Для совместимости с текущим кодом (который иногда шлет массив)
-                const payload = Array.isArray(data) ? data[0] : data; 
-                const res = await fetch(`${API_URL}/${table}`, {
-                    method: 'POST',
-                    headers: getHeaders(),
-                    body: JSON.stringify(payload)
-                });
-                const responseData = await res.json();
-                // Если был массив, вернем массив
-                return { data: Array.isArray(data) ? [responseData] : responseData, error: res.ok ? null : new Error(responseData.error) };
+                try {
+                    const payload = Array.isArray(data) ? data[0] : data; 
+                    const res = await fetch(`${API_URL}/${table}`, {
+                        method: 'POST',
+                        headers: getHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({ error: `Insert failed: ${res.status}` }));
+                        return { data: null, error: new Error(err.error) };
+                    }
+                    const responseData = await res.json();
+                    return { data: Array.isArray(data) ? [responseData] : responseData, error: null };
+                } catch (e: any) {
+                     return { data: null, error: e };
+                }
             },
             update: (updates: any) => ({
                 eq: async (_col: string, val: string) => {
-                    const res = await fetch(`${API_URL}/${table}/${val}`, {
-                        method: 'PATCH',
-                        headers: getHeaders(),
-                        body: JSON.stringify(updates)
-                    });
-                    const data = await res.json();
-                    return { data, error: res.ok ? null : new Error(data.error) };
+                    try {
+                        const res = await fetch(`${API_URL}/${table}/${val}`, {
+                            method: 'PATCH',
+                            headers: getHeaders(),
+                            body: JSON.stringify(updates)
+                        });
+                         if (!res.ok) {
+                            const err = await res.json().catch(() => ({ error: `Update failed: ${res.status}` }));
+                            return { data: null, error: new Error(err.error) };
+                        }
+                        const data = await res.json();
+                        return { data, error: null };
+                    } catch (e: any) {
+                        return { data: null, error: e };
+                    }
                 }
             }),
             delete: () => ({
                 eq: async (_col: string, val: string) => {
-                     // Удаление по ID
-                    const res = await fetch(`${API_URL}/${table}?id=${val}`, { method: 'DELETE', headers: getHeaders() });
-                    return { error: res.ok ? null : new Error('Delete failed') };
+                    try {
+                        const res = await fetch(`${API_URL}/${table}?id=${val}`, { method: 'DELETE', headers: getHeaders() });
+                        if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+                        return { error: null };
+                    } catch (e: any) {
+                        return { error: e };
+                    }
                 },
                 in: async (_col: string, vals: string[]) => {
-                     // Массовое удаление
-                    const res = await fetch(`${API_URL}/${table}?ids=${vals.join(',')}`, { method: 'DELETE', headers: getHeaders() });
-                    return { error: res.ok ? null : new Error('Delete failed') };
+                    try {
+                        const res = await fetch(`${API_URL}/${table}?ids=${vals.join(',')}`, { method: 'DELETE', headers: getHeaders() });
+                        if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+                        return { error: null };
+                    } catch (e: any) {
+                        return { error: e };
+                    }
                 },
                 match: async (query: any) => {
-                     // Специфично для attendance delete
-                    const params = new URLSearchParams(query);
-                    const res = await fetch(`${API_URL}/${table}?${params.toString()}`, { method: 'DELETE', headers: getHeaders() });
-                    return { error: res.ok ? null : new Error('Delete failed') };
+                    try {
+                        const params = new URLSearchParams(query);
+                        const res = await fetch(`${API_URL}/${table}?${params.toString()}`, { method: 'DELETE', headers: getHeaders() });
+                        if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+                        return { error: null };
+                    } catch (e: any) {
+                        return { error: e };
+                    }
                 }
             }),
             upsert: async (data: any) => {
-                 // Реализуем как POST для упрощения, сервер должен обрабатывать ON CONFLICT
-                 // В server.js это реализовано для attendance и exceptions
-                const payload = Array.isArray(data) ? data[0] : data; 
-                const res = await fetch(`${API_URL}/${table}`, {
-                    method: 'POST',
-                    headers: getHeaders(),
-                    body: JSON.stringify(payload)
-                });
-                const responseData = await res.json();
-                return { data: responseData, error: res.ok ? null : new Error(responseData.error) };
+                try {
+                    const payload = Array.isArray(data) ? data[0] : data; 
+                    const res = await fetch(`${API_URL}/${table}`, {
+                        method: 'POST',
+                        headers: getHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) {
+                         const err = await res.json().catch(() => ({ error: `Upsert failed: ${res.status}` }));
+                         return { data: null, error: new Error(err.error) };
+                    }
+                    const responseData = await res.json();
+                    return { data: responseData, error: null };
+                } catch (e: any) {
+                    return { data: null, error: e };
+                }
             }
         };
     }
