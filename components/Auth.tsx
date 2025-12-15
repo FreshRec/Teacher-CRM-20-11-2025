@@ -60,6 +60,13 @@ export default function Auth() {
             errorMessage = `Нет соединения с сервером. \nПроверьте адрес API: ${API_URL}`;
         }
         
+        // Обработка ошибки DNS (база данных недоступна)
+        if (typeof errorMessage === 'string' && 
+           (errorMessage.includes('getaddrinfo ENOTFOUND') || errorMessage.includes('getaddrinfo EAI_AGAIN')) && 
+           errorMessage.includes('mdb.yandexcloud.net')) {
+            errorMessage = `Ошибка подключения к Базе Данных (DNS).\n\nСервер не видит хост базы данных.\n\nКАК ИСПРАВИТЬ:\nВариант 1 (через Хосты - надежнее):\n1. Yandex Cloud -> PostgreSQL -> Выберите кластер.\n2. Слева меню "Хосты" (Hosts).\n3. Нажмите "Изменить" (карандаш/три точки) у хоста.\n4. Включите "Публичный доступ".\n\nВариант 2 (через Настройки):\n1. Кнопка "Изменить кластер" вверху.\n2. Блок "Дополнительные настройки" (развернуть).\n3. Галочка "Публичный доступ".`;
+        }
+        
         setMessage({ text: errorMessage, type: 'error' });
     } finally {
         setLoading(false);
