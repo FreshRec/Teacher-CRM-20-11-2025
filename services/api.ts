@@ -1,8 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Реальный API клиент для взаимодействия с backend/server.js
 
-// Получаем URL из переменной окружения или используем localhost по умолчанию
-const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
+// Функция для получения URL API с приоритетом:
+// 1. Ручная настройка (localStorage) - позволяет исправить ошибку без пересборки
+// 2. Переменная окружения (VITE_API_URL) - штатный режим
+// 3. Localhost - режим разработки
+export const getApiUrl = () => {
+    if (typeof localStorage !== 'undefined') {
+        const manual = localStorage.getItem('teacher_crm_api_url');
+        if (manual) return manual;
+    }
+    return (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
+};
+
+const API_URL = getApiUrl();
 
 // Логируем адрес API для отладки (видно в консоли браузера)
 console.log('API Client initialized. Target URL:', API_URL);
