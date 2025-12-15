@@ -26,5 +26,5 @@ jobs:
         with:
           context: ./backend
           push: true
-          # Используем новое имя секрета YC_CR_ID для ID реестра
-          tags: cr.yandex/${{ secrets.YC_CR_ID }}/teacher-crm-backend:latest
+          # ID реестра прописан напрямую. Если вы пересоздадите реестр, обновите этот ID.
+          tags: cr.yandex/crpsp4c8ej0404ncpmfk/teacher-crm-backend:latest
